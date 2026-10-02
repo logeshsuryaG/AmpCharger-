@@ -237,6 +237,11 @@
 
   /* ---- city select sheet ---- */
   .locate-btn{ display:flex; align-items:center; gap:10px; background:var(--teal-dim); border:1px solid var(--teal); color:#7EE0CC; padding:12px 14px; border-radius:13px; font-size:13.5px; font-weight:600; cursor:pointer; margin-top:16px; }
+  .near-me-btn{ display:flex; align-items:center; justify-content:center; gap:8px; background:var(--amber); color:var(--navy-deep); padding:11px 14px; border-radius:13px; font-size:13.5px; font-weight:700; cursor:pointer; margin-top:12px; }
+  .near-me-btn.loading{ opacity:0.75; }
+  .near-me-btn.active{ background:var(--teal); }
+  .vehicle-item{ display:flex; align-items:center; justify-content:space-between; padding:13px 14px; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:12px; margin-bottom:8px; cursor:pointer; font-size:13.5px; }
+  .vehicle-item .vi-tag{ font-size:10.5px; color:var(--text-lo); background:var(--navy-deep); border:1px solid var(--line); padding:3px 8px; border-radius:8px; }
   .locate-btn svg{ width:17px; height:17px; flex-shrink:0; }
   .locate-btn.loading{ opacity:0.7; }
   .city-item{ display:flex; align-items:center; justify-content:space-between; padding:13px 14px; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:12px; margin-bottom:8px; cursor:pointer; font-size:13.5px; }
@@ -282,6 +287,10 @@
       <div class="searchbar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input id="searchInput" placeholder="Search stations, area, network…">
+      </div>
+      <div class="near-me-btn" id="nearMeBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        <span id="nearMeBtnLabel">Find stations near me</span>
       </div>
       <div class="chips" id="chipRow"></div>
     </div>
@@ -398,6 +407,7 @@
       <div style="margin-top:22px;">
         <div class="settings-row editable" id="rowVehicle"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>Vehicle</div><div class="r-wrap"><div class="r" id="valVehicle">Tata Nexon EV</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div></div>
         <div class="settings-row editable" id="rowConnector"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="10" rx="2"/><path d="M23 13v-2"/></svg>Connector type</div><div class="r-wrap"><div class="r" id="valConnector">CCS2</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div></div>
+        <div class="settings-row editable" id="rowCity"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>City</div><div class="r-wrap"><div class="r" id="valCity">Bengaluru</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div></div>
         <div class="settings-row"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Notifications</div><div class="toggle-switch on" id="notifToggle"><div class="knob"></div></div></div>
         <div class="settings-row"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>Charging history</div><div class="r">12 sessions</div></div>
       </div>
@@ -461,16 +471,76 @@
     </div>
   </div>
 
+  <div class="sheet-overlay" id="vehicleSheetOverlay">
+    <div class="sheet" id="vehicleSheetInner" style="max-height:80%;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll" style="padding-top:6px;">
+        <div class="sheet-head">
+          <div class="sheet-title">Choose your vehicle</div>
+          <div class="close-x" id="closeVehicleSheet">✕</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-lo);margin-top:6px;">Picking your model sets the right charger type automatically.</div>
+        <div class="searchbar" style="margin-top:14px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="vehicleSearchInput" placeholder="Search your vehicle model…">
+        </div>
+        <div class="sec-label" style="margin-bottom:8px;">Cars</div>
+        <div id="vehicleCarList"></div>
+        <div class="sec-label">Two-wheelers</div>
+        <div id="vehicleTwoWheelerList"></div>
+        <div class="vehicle-item" id="vehicleOtherItem" style="margin-top:4px;">
+          <span>Other / not listed — type it myself</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="sheet-overlay" id="suggestSheetOverlay">
-    <div class="sheet" id="suggestSheetInner" style="max-height:80%;">
+    <div class="sheet" id="suggestSheetInner" style="max-height:88%;">
       <div class="sheet-handle"></div>
       <div class="sheet-scroll" style="padding-top:6px;">
         <div class="sheet-head">
           <div class="sheet-title">Suggest a station</div>
           <div class="close-x" id="closeSuggestSheet">✕</div>
         </div>
-        <div id="suggestBody" style="margin-top:16px;">
-          <div style="font-size:12.5px;color:var(--text-lo);text-align:center;padding:20px 10px;">Finding your location…</div>
+        <div style="font-size:12px;color:var(--text-lo);margin-top:6px;">Fill in what you know — our team reviews every suggestion before it goes live for other users.</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+          <div class="field-label">Station name</div>
+          <div class="place-input-row"><input id="sugName" placeholder="e.g. Market Road Charging Point"></div>
+
+          <div class="field-label" style="margin-top:4px;">Address / area</div>
+          <div class="place-field">
+            <div class="place-input-row">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              <input id="sugPlaceInput" placeholder="Type any address, area, town or village" autocomplete="off">
+            </div>
+            <div class="autocomplete" id="sugPlaceAc"></div>
+          </div>
+          <div class="locate-btn" id="sugLocateBtn" style="margin-top:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            <span id="sugLocateBtnLabel">Or use my current location</span>
+          </div>
+
+          <div class="field-label" style="margin-top:4px;">Charger type</div>
+          <div class="settings-row editable" id="sugConnectorRow" style="background:var(--navy-panel-2);border-radius:13px;padding:11px 14px;">
+            <div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="10" rx="2"/><path d="M23 13v-2"/></svg>Tap to change</div>
+            <div class="r-wrap"><div class="r" id="sugConnectorVal">CCS2</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+          </div>
+
+          <div class="range-row">
+            <div class="range-box">
+              <div class="field-label">Power (optional)</div>
+              <div class="place-input-row"><input id="sugPower" type="number" placeholder="kW"></div>
+            </div>
+            <div class="range-box">
+              <div class="field-label">Price (optional)</div>
+              <div class="place-input-row"><input id="sugPrice" type="number" placeholder="₹/kWh"></div>
+            </div>
+          </div>
+
+          <button class="plan-btn" id="submitSuggestionBtn" style="margin-top:6px;">Submit for review</button>
+          <div id="suggestMsg" style="font-size:11.5px;color:var(--text-lo);"></div>
         </div>
       </div>
     </div>
@@ -1056,6 +1126,7 @@ function filteredStations(){
   if(state.filter === "fast") list = list.filter(s => s.connectors.some(c => c.power >= 50));
   if(state.filter === "ac") list = list.filter(s => s.connectors.some(c => c.type.includes("AC")));
   if(state.filter === "available") list = list.filter(s => s.status === "available");
+  if(state.filter === "mycharger") list = list.filter(s => s.connectors.some(c => c.type === profile.connector));
   list = list.sort((a,b)=>a.distance-b.distance);
   return state.location ? list.slice(0, 10) : list; // nearest 10 when browsing from a village/town
 }
@@ -1116,6 +1187,7 @@ function renderBottomNavs(){
 /* ---------------- RENDER: chips ---------------- */
 function renderChips(){
   const chips = [
+    {key:"mycharger", label:`⚡ Fits my ${profile.connector}`},
     {key:"all", label:"All stations"},
     {key:"available", label:"Available now"},
     {key:"fast", label:"Fast DC 50kW+"},
@@ -1347,6 +1419,10 @@ cityPick.addEventListener("click", openCitySheet);
 
 function updateCityLabel(){
   document.getElementById("cityLabel").textContent = state.location ? state.location.label.split(",")[0] : state.city;
+  const nearBtn = document.getElementById("nearMeBtn");
+  const nearLabel = document.getElementById("nearMeBtnLabel");
+  nearBtn.classList.toggle("active", !!state.location);
+  nearLabel.textContent = state.location ? `Showing nearest to ${state.location.label.split(",")[0]}` : "Find stations near me";
 }
 
 function selectCity(name){
@@ -1451,30 +1527,36 @@ document.getElementById("citySearchInput").addEventListener("input", (e)=>{
   renderCityLists(e.target.value);
 });
 
-document.getElementById("locateBtn").addEventListener("click", ()=>{
-  const btn = document.getElementById("locateBtn");
-  const label = document.getElementById("locateBtnLabel");
+function findNearbyViaGPS(btn, label){
   if(!navigator.geolocation){
     showToast("Location isn't available in this browser");
     return;
   }
+  const originalLabel = label.textContent;
   btn.classList.add("loading");
   label.textContent = "Finding your location…";
   navigator.geolocation.getCurrentPosition(
     (pos)=>{
       btn.classList.remove("loading");
-      label.textContent = "Use my current location";
+      label.textContent = originalLabel;
       const here = {lat: pos.coords.latitude, lng: pos.coords.longitude};
       selectPlace({ label: "Your location", lat: here.lat, lng: here.lng });
     },
     (err)=>{
       btn.classList.remove("loading");
-      label.textContent = "Use my current location";
+      label.textContent = originalLabel;
       const reasons = {1:"Location access is blocked for this site — check Chrome's site permissions.", 2:"Your device couldn't determine a location right now.", 3:"Location took too long — try again outdoors or near a window."};
       showToast(reasons[err.code] || "Couldn't get your location — pick a city below");
     },
     {timeout:20000, enableHighAccuracy:false, maximumAge:120000}
   );
+}
+
+document.getElementById("locateBtn").addEventListener("click", ()=>{
+  findNearbyViaGPS(document.getElementById("locateBtn"), document.getElementById("locateBtnLabel"));
+});
+document.getElementById("nearMeBtn").addEventListener("click", ()=>{
+  findNearbyViaGPS(document.getElementById("nearMeBtn"), document.getElementById("nearMeBtnLabel"));
 });
 
 /* ================= TRIP PLANNER LOGIC ================= */
@@ -1568,9 +1650,37 @@ function dedupePlaces(list){
   });
 }
 
+// If someone types a country name (India's neighbors or anywhere else),
+// the live geocoders can still return a loosely-matched Indian place instead
+// of admitting there's no match — so country names are blocked outright and
+// treated as "no place found," rather than letting a fuzzy match through.
+const COUNTRY_NAMES = new Set([
+  "afghanistan","albania","algeria","andorra","angola","antigua and barbuda","argentina","armenia","australia","austria","azerbaijan",
+  "bahamas","bahrain","bangladesh","barbados","belarus","belgium","belize","benin","bhutan","bolivia","bosnia","bosnia and herzegovina",
+  "botswana","brazil","brunei","bulgaria","burkina faso","burundi","cambodia","cameroon","canada","cape verde","central african republic",
+  "chad","chile","china","colombia","comoros","congo","costa rica","croatia","cuba","cyprus","czech republic","czechia","denmark",
+  "djibouti","dominica","dominican republic","ecuador","egypt","el salvador","equatorial guinea","eritrea","estonia","eswatini",
+  "ethiopia","fiji","finland","france","gabon","gambia","georgia","germany","ghana","greece","grenada","guatemala","guinea",
+  "guinea-bissau","guyana","haiti","honduras","hungary","iceland","indonesia","iran","iraq","ireland","israel","italy","ivory coast",
+  "jamaica","japan","jordan","kazakhstan","kenya","kiribati","kosovo","kuwait","kyrgyzstan","laos","latvia","lebanon","lesotho",
+  "liberia","libya","liechtenstein","lithuania","luxembourg","madagascar","malawi","malaysia","maldives","mali","malta",
+  "marshall islands","mauritania","mauritius","mexico","micronesia","moldova","monaco","mongolia","montenegro","morocco",
+  "mozambique","myanmar","burma","namibia","nauru","nepal","netherlands","new zealand","nicaragua","niger","nigeria","north korea",
+  "north macedonia","macedonia","norway","oman","pakistan","palau","palestine","panama","papua new guinea","paraguay","peru",
+  "philippines","poland","portugal","qatar","romania","russia","rwanda","saint kitts and nevis","saint lucia",
+  "saint vincent and the grenadines","samoa","san marino","sao tome and principe","saudi arabia","senegal","serbia","seychelles",
+  "sierra leone","singapore","slovakia","slovenia","solomon islands","somalia","south africa","south korea","korea","south sudan",
+  "spain","sri lanka","sudan","suriname","sweden","switzerland","syria","taiwan","tajikistan","tanzania","thailand","timor-leste",
+  "east timor","togo","tonga","trinidad and tobago","tunisia","turkey","turkiye","turkmenistan","tuvalu","uganda","ukraine",
+  "united arab emirates","uae","united kingdom","uk","britain","great britain","england","scotland","wales","united states",
+  "united states of america","usa","us","america","uruguay","uzbekistan","vanuatu","vatican city","venezuela","vietnam","yemen",
+  "zambia","zimbabwe",
+]);
+
 async function geocodeSearch(query){
   const q = (query || "").trim();
   if(q.length < 2) return [];
+  if(COUNTRY_NAMES.has(q.toLowerCase())) return []; // country name typed — no place found, by design
   const settled = await Promise.allSettled([searchOpenMeteo(q), searchNominatim(q)]);
   let merged = [];
   let anyLiveOk = false;
@@ -1922,89 +2032,102 @@ document.getElementById("seedBtn").addEventListener("click", async ()=>{
   btn.disabled = false; btn.textContent = "Seed demo stations into database";
 });
 
-/* ---------------- CUSTOMER: suggest a station (one-tap, no typing) ---------------- */
-let pendingSuggestionLocation = null;
+/* ---------------- CUSTOMER: suggest a station (manual form + optional live location) ---------------- */
+let suggestPlace = null; // {label, lat, lng} once picked from search or via "use my location"
+let suggestConnector = "CCS2";
 
-function renderSuggestBody(html){
-  document.getElementById("suggestBody").innerHTML = html;
+function resetSuggestForm(){
+  suggestPlace = null;
+  suggestConnector = "CCS2";
+  ["sugName","sugPlaceInput","sugPower","sugPrice"].forEach(id=>{ document.getElementById(id).value = ""; });
+  document.getElementById("sugConnectorVal").textContent = suggestConnector;
+  document.getElementById("suggestMsg").textContent = "";
+  const btn = document.getElementById("submitSuggestionBtn");
+  btn.disabled = false; btn.textContent = "Submit for review";
 }
 
-async function detectSuggestLocation(){
-  renderSuggestBody(`<div style="font-size:12.5px;color:var(--text-lo);text-align:center;padding:20px 10px;">Finding your location…</div>`);
-  pendingSuggestionLocation = null;
+setupAutocomplete("sugPlaceInput","sugPlaceAc", (place)=>{ suggestPlace = place; });
 
-  if(!navigator.geolocation){
-    renderSuggestBody(`<div style="font-size:12.5px;color:var(--text-lo);text-align:center;padding:10px;">Location isn't available in this browser.</div>`);
-    return;
-  }
+document.getElementById("sugConnectorRow").addEventListener("click", ()=>{
+  const idx = CONNECTOR_CHOICES.indexOf(suggestConnector);
+  suggestConnector = CONNECTOR_CHOICES[(idx + 1) % CONNECTOR_CHOICES.length];
+  document.getElementById("sugConnectorVal").textContent = suggestConnector;
+});
 
+document.getElementById("sugLocateBtn").addEventListener("click", ()=>{
+  const btn = document.getElementById("sugLocateBtn");
+  const label = document.getElementById("sugLocateBtnLabel");
+  if(!navigator.geolocation){ showToast("Location isn't available in this browser"); return; }
+  btn.classList.add("loading");
+  label.textContent = "Finding your location…";
   navigator.geolocation.getCurrentPosition(
     async (pos)=>{
       const here = {lat: pos.coords.latitude, lng: pos.coords.longitude};
       const place = await reverseGeocode(here.lat, here.lng, new Set());
-      const label = place ? place.label : `${here.lat.toFixed(4)}, ${here.lng.toFixed(4)}`;
-      pendingSuggestionLocation = { label, lat: here.lat, lng: here.lng };
-      renderSuggestBody(`
-        <div class="detected-place">
-          <div class="dp-label">Is there a charging station at your current location?</div>
-          <div class="dp-name">${label}</div>
-        </div>
-        <div id="suggestMsg" style="font-size:11.5px;color:var(--text-lo);margin-top:10px;text-align:center;"></div>
-        <div class="confirm-actions">
-          <button class="reject-btn" id="rejectSuggestBtn">Reject</button>
-          <button class="yes-btn" id="yesSuggestBtn">Yes, suggest it</button>
-        </div>
-      `);
-      document.getElementById("rejectSuggestBtn").addEventListener("click", ()=>{
-        document.getElementById("suggestSheetOverlay").classList.remove("active");
-      });
-      document.getElementById("yesSuggestBtn").addEventListener("click", async ()=>{
-        const msg = document.getElementById("suggestMsg");
-        if(!db){ msg.textContent = "This app isn't connected to a database yet — nothing to submit to."; return; }
-        const btn = document.getElementById("yesSuggestBtn");
-        btn.disabled = true; btn.textContent = "Submitting…";
-        try{
-          const firstPart = pendingSuggestionLocation.label.split(",")[0].trim();
-          await submitStationSuggestion(db, {
-            name: `Charging station near ${firstPart}`,
-            area: pendingSuggestionLocation.label,
-            city: firstPart,
-            lat: pendingSuggestionLocation.lat,
-            lng: pendingSuggestionLocation.lng,
-          });
-          renderSuggestBody(`<div style="font-size:13px;color:#7EE0CC;text-align:center;padding:20px 10px;">Thanks! Our team will review it shortly.</div>`);
-          setTimeout(()=>{ document.getElementById("suggestSheetOverlay").classList.remove("active"); }, 1100);
-        } catch(e){
-          msg.textContent = "Couldn't submit — check your connection and try again.";
-          btn.disabled = false; btn.textContent = "Yes, suggest it";
-        }
-      });
+      suggestPlace = place || { label: `${here.lat.toFixed(4)}, ${here.lng.toFixed(4)}`, lat: here.lat, lng: here.lng };
+      document.getElementById("sugPlaceInput").value = suggestPlace.label;
+      btn.classList.remove("loading");
+      label.textContent = "Or use my current location";
     },
     (err)=>{
-      const reasons = {
-        1: "Location access is blocked for this site. Check the site permissions icon next to the address bar, allow Location, then try again.",
-        2: "Your device couldn't determine a location right now. Make sure Location is turned on in your phone's settings, then try again.",
-        3: "Location took too long to respond. Try again outdoors or near a window, or check your phone's Location settings.",
-      };
-      renderSuggestBody(`
-        <div style="font-size:12.5px;color:var(--text-lo);text-align:center;padding:10px;">${reasons[err.code] || "Couldn't get your location. Please allow location access and try again."}</div>
-        <div class="confirm-actions"><button class="yes-btn" id="retryLocateBtn" style="flex:none;width:100%;">Try again</button></div>
-      `);
-      document.getElementById("retryLocateBtn").addEventListener("click", detectSuggestLocation);
+      btn.classList.remove("loading");
+      label.textContent = "Or use my current location";
+      const reasons = {1:"Location access is blocked for this site.", 2:"Your device couldn't determine a location right now.", 3:"Location took too long — try typing the address instead."};
+      showToast(reasons[err.code] || "Couldn't get your location — try typing the address instead");
     },
     {timeout:20000, enableHighAccuracy:false, maximumAge:120000}
   );
-}
+});
 
 document.getElementById("suggestBanner").addEventListener("click", ()=>{
+  resetSuggestForm();
   document.getElementById("suggestSheetOverlay").classList.add("active");
-  detectSuggestLocation();
 });
 document.getElementById("closeSuggestSheet").addEventListener("click", ()=>{
   document.getElementById("suggestSheetOverlay").classList.remove("active");
 });
 document.getElementById("suggestSheetOverlay").addEventListener("click", (e)=>{
   if(e.target.id === "suggestSheetOverlay") document.getElementById("suggestSheetOverlay").classList.remove("active");
+});
+
+document.getElementById("submitSuggestionBtn").addEventListener("click", async ()=>{
+  const msg = document.getElementById("suggestMsg");
+  if(!db){ msg.textContent = "This app isn't connected to a database yet — nothing to submit to."; return; }
+
+  const name = document.getElementById("sugName").value.trim();
+  const typedPlace = document.getElementById("sugPlaceInput").value.trim();
+  const power = parseFloat(document.getElementById("sugPower").value) || 50;
+  const price = parseFloat(document.getElementById("sugPrice").value) || 18;
+
+  if(!name || !typedPlace){
+    msg.textContent = "Station name and address/area are required.";
+    return;
+  }
+
+  const btn = document.getElementById("submitSuggestionBtn");
+  btn.disabled = true; btn.textContent = "Submitting…";
+  try{
+    const place = await resolvePlace(typedPlace, suggestPlace);
+    if(!place){
+      msg.textContent = "Couldn't recognize that address — try a different spelling or pick a suggestion from the list.";
+      btn.disabled = false; btn.textContent = "Submit for review";
+      return;
+    }
+    await submitStationSuggestion(db, {
+      name,
+      area: place.label,
+      city: place.label.split(",")[0].trim(),
+      lat: place.lat,
+      lng: place.lng,
+      connectors: [{type: suggestConnector, power, price}],
+    });
+    msg.textContent = "";
+    document.getElementById("suggestSheetOverlay").querySelector(".sheet-scroll").innerHTML = `<div style="font-size:13px;color:#7EE0CC;text-align:center;padding:30px 10px;">Thanks! Our team will review it shortly.</div>`;
+    setTimeout(()=>{ document.getElementById("suggestSheetOverlay").classList.remove("active"); }, 1200);
+  } catch(e){
+    msg.textContent = "Couldn't submit — check your connection and try again.";
+    btn.disabled = false; btn.textContent = "Submit for review";
+  }
 });
 
 /* ---------------- OPERATOR: unlock gate + pending review queue ---------------- */
@@ -2071,15 +2194,121 @@ document.getElementById("unlockAdminBtn").addEventListener("click", async ()=>{
 
 /* ---------------- INIT ---------------- */
 /* ---------------- EDITABLE PROFILE ---------------- */
-let profile = { name: "Logesh", vehicle: "Tata Nexon EV", connector: "CCS2", notifications: true };
+const PROFILE_STORE_KEY = "ampcharge_profile_v1";
+function loadSavedProfile(){
+  try{
+    const raw = localStorage.getItem(PROFILE_STORE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  } catch(e){ return null; }
+}
+function saveProfile(){
+  try{ localStorage.setItem(PROFILE_STORE_KEY, JSON.stringify(profile)); } catch(e){ /* storage unavailable — profile just won't persist */ }
+}
+let profile = Object.assign(
+  { name: "Logesh", vehicle: "Tata Nexon EV", connector: "CCS2", city: "Bengaluru", notifications: true },
+  loadSavedProfile() || {}
+);
 const CONNECTOR_CHOICES = ["CCS2", "Type 2 AC", "CHAdeMO", "Bharat AC001"];
+
+// Model -> charger-type reference, so picking a model can set the right
+// connector automatically. This covers most of the Indian EV market as of
+// early 2026, but new models launch constantly — it's a best-effort list,
+// not a guaranteed-complete one, which is why "Other" is always available.
+// Mapped to whichever of the 4 connector types above is the closest match.
+const VEHICLE_MODELS = {
+  cars: [
+    {name:"Tata Nexon EV", connector:"CCS2"},
+    {name:"Tata Tiago EV", connector:"CCS2"},
+    {name:"Tata Punch EV", connector:"CCS2"},
+    {name:"Tata Tigor EV", connector:"CCS2"},
+    {name:"Tata Curvv EV", connector:"CCS2"},
+    {name:"Tata Harrier EV", connector:"CCS2"},
+    {name:"Tata Altroz EV", connector:"CCS2"},
+    {name:"MG ZS EV", connector:"CCS2"},
+    {name:"MG Comet EV", connector:"CCS2"},
+    {name:"MG Windsor EV", connector:"CCS2"},
+    {name:"Mahindra XUV400", connector:"CCS2"},
+    {name:"Mahindra BE 6", connector:"CCS2"},
+    {name:"Mahindra XEV 9e", connector:"CCS2"},
+    {name:"Hyundai Kona Electric", connector:"CCS2"},
+    {name:"Hyundai Ioniq 5", connector:"CCS2"},
+    {name:"Hyundai Creta Electric", connector:"CCS2"},
+    {name:"Kia EV6", connector:"CCS2"},
+    {name:"Kia EV9", connector:"CCS2"},
+    {name:"Kia Syros EV", connector:"CCS2"},
+    {name:"BYD Atto 3", connector:"CCS2"},
+    {name:"BYD e6", connector:"CCS2"},
+    {name:"BYD Seal", connector:"CCS2"},
+    {name:"BYD Seal U / Sealion 7", connector:"CCS2"},
+    {name:"BYD eMAX 7", connector:"CCS2"},
+    {name:"Citroen eC3", connector:"CCS2"},
+    {name:"Citroen Basalt EV", connector:"CCS2"},
+    {name:"Maruti Suzuki e Vitara (eVX)", connector:"CCS2"},
+    {name:"BMW iX1", connector:"CCS2"},
+    {name:"BMW i4", connector:"CCS2"},
+    {name:"BMW iX", connector:"CCS2"},
+    {name:"BMW i7", connector:"CCS2"},
+    {name:"Mercedes-Benz EQB", connector:"CCS2"},
+    {name:"Mercedes-Benz EQA", connector:"CCS2"},
+    {name:"Mercedes-Benz EQS", connector:"CCS2"},
+    {name:"Mercedes-Benz EQE", connector:"CCS2"},
+    {name:"Audi e-tron", connector:"CCS2"},
+    {name:"Audi Q8 e-tron", connector:"CCS2"},
+    {name:"Volvo XC40 Recharge", connector:"CCS2"},
+    {name:"Volvo C40 Recharge", connector:"CCS2"},
+    {name:"Volvo EX30", connector:"CCS2"},
+    {name:"Jaguar I-PACE", connector:"CCS2"},
+    {name:"Porsche Taycan", connector:"CCS2"},
+    {name:"Lexus RZ", connector:"CCS2"},
+    {name:"Volkswagen ID.4", connector:"CCS2"},
+    {name:"Skoda Enyaq", connector:"CCS2"},
+    {name:"PMV EaS", connector:"CCS2"},
+  ],
+  twoWheelers: [
+    {name:"Ola S1 Pro", connector:"Type 2 AC"},
+    {name:"Ola S1 Air", connector:"Type 2 AC"},
+    {name:"Ola S1 X", connector:"Type 2 AC"},
+    {name:"Ola Roadster", connector:"Type 2 AC"},
+    {name:"Ather 450X", connector:"Type 2 AC"},
+    {name:"Ather 450S", connector:"Type 2 AC"},
+    {name:"Ather 450 Plus", connector:"Type 2 AC"},
+    {name:"Ather Rizta", connector:"Type 2 AC"},
+    {name:"TVS iQube", connector:"Bharat AC001"},
+    {name:"TVS iQube ST", connector:"Bharat AC001"},
+    {name:"TVS X", connector:"Type 2 AC"},
+    {name:"Bajaj Chetak", connector:"Bharat AC001"},
+    {name:"Bajaj Chetak Premium", connector:"Bharat AC001"},
+    {name:"Hero Vida V1", connector:"Type 2 AC"},
+    {name:"Hero Vida V1 Pro", connector:"Type 2 AC"},
+    {name:"Hero Vida VX2", connector:"Type 2 AC"},
+    {name:"Hero Electric Optima", connector:"Bharat AC001"},
+    {name:"Hero Electric Photon", connector:"Bharat AC001"},
+    {name:"Hero Electric NYX", connector:"Bharat AC001"},
+    {name:"Ampere Magnus EX", connector:"Bharat AC001"},
+    {name:"Ampere Zeal", connector:"Bharat AC001"},
+    {name:"Ampere Primus", connector:"Type 2 AC"},
+    {name:"Okinawa PraisePro", connector:"Bharat AC001"},
+    {name:"Okinawa Ridge+", connector:"Bharat AC001"},
+    {name:"Revolt RV400", connector:"Bharat AC001"},
+    {name:"Revolt RV1", connector:"Bharat AC001"},
+    {name:"Simple Energy One", connector:"Type 2 AC"},
+    {name:"River Indie", connector:"Type 2 AC"},
+    {name:"Ultraviolette F77", connector:"CCS2"},
+    {name:"BGauss B8", connector:"Bharat AC001"},
+    {name:"BGauss A2", connector:"Bharat AC001"},
+    {name:"Komaki Ranger", connector:"Bharat AC001"},
+    {name:"PURE EV EPluto", connector:"Bharat AC001"},
+  ],
+};
 
 function renderProfile(){
   document.getElementById("profileAvatar").textContent = (profile.name.trim()[0] || "?").toUpperCase();
   document.getElementById("profileNameDisplay").textContent = profile.name;
-  document.getElementById("profileSub").textContent = `EV owner · ${state.city}`;
+  document.getElementById("profileSub").textContent = `EV owner · ${profile.city}`;
   document.getElementById("valVehicle").textContent = profile.vehicle;
   document.getElementById("valConnector").textContent = profile.connector;
+  document.getElementById("valCity").textContent = profile.city;
   const toggle = document.getElementById("notifToggle");
   toggle.classList.toggle("on", profile.notifications);
 }
@@ -2094,10 +2323,11 @@ function editTextField(displayId, currentValue, onSave){
   input.focus();
   input.select();
   const commit = ()=>{
-    const val = input.value.trim() || currentValue;
+    const val = input.value.trim();
     input.remove();
     el.style.display = "";
     onSave(val);
+    saveProfile();
     renderProfile();
     rewireProfileHandlers();
   };
@@ -2107,26 +2337,86 @@ function editTextField(displayId, currentValue, onSave){
 
 function rewireProfileHandlers(){
   document.getElementById("profileNameDisplay").onclick = ()=>{
-    editTextField("profileNameDisplay", profile.name, (v)=>{ profile.name = v; });
+    editTextField("profileNameDisplay", profile.name, (v)=>{ profile.name = v || profile.name; });
   };
-  document.getElementById("rowVehicle").onclick = ()=>{
-    editTextField("valVehicle", profile.vehicle, (v)=>{ profile.vehicle = v; });
+  document.getElementById("rowVehicle").onclick = openVehicleSheet;
+  document.getElementById("rowCity").onclick = ()=>{
+    editTextField("valCity", profile.city, (v)=>{ profile.city = v || profile.city; });
   };
   document.getElementById("rowConnector").onclick = ()=>{
     // tap cycles through known connector types — keeps it to valid values, no typing
     const idx = CONNECTOR_CHOICES.indexOf(profile.connector);
     profile.connector = CONNECTOR_CHOICES[(idx + 1) % CONNECTOR_CHOICES.length];
+    saveProfile();
     renderProfile();
     rewireProfileHandlers();
   };
 }
 
+/* ---- vehicle model picker ---- */
+function vehicleItemHtml(name, connector){
+  return `<div class="vehicle-item" data-name="${name}" data-connector="${connector}">
+    <span>${name}</span><span class="vi-tag">${connector}</span>
+  </div>`;
+}
+
+function renderVehicleLists(query){
+  const q = (query||"").trim().toLowerCase();
+  const carWrap = document.getElementById("vehicleCarList");
+  const twWrap = document.getElementById("vehicleTwoWheelerList");
+
+  const cars = VEHICLE_MODELS.cars.filter(v => !q || v.name.toLowerCase().includes(q));
+  const tws = VEHICLE_MODELS.twoWheelers.filter(v => !q || v.name.toLowerCase().includes(q));
+
+  carWrap.innerHTML = cars.length ? cars.map(v=>vehicleItemHtml(v.name, v.connector)).join("")
+    : `<div style="font-size:12.5px;color:var(--text-lo);padding:6px 2px;">No matches.</div>`;
+  twWrap.innerHTML = tws.length ? tws.map(v=>vehicleItemHtml(v.name, v.connector)).join("")
+    : `<div style="font-size:12.5px;color:var(--text-lo);padding:6px 2px;">No matches.</div>`;
+
+  document.querySelectorAll("#vehicleCarList .vehicle-item, #vehicleTwoWheelerList .vehicle-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      profile.vehicle = el.dataset.name;
+      profile.connector = el.dataset.connector;
+      saveProfile();
+      closeVehicleSheet();
+      renderProfile();
+      rewireProfileHandlers();
+      showToast(`${el.dataset.connector} set as your charger type`);
+    });
+  });
+}
+
+function openVehicleSheet(){
+  document.getElementById("vehicleSearchInput").value = "";
+  renderVehicleLists("");
+  document.getElementById("vehicleSheetOverlay").classList.add("active");
+}
+function closeVehicleSheet(){ document.getElementById("vehicleSheetOverlay").classList.remove("active"); }
+document.getElementById("closeVehicleSheet").addEventListener("click", closeVehicleSheet);
+document.getElementById("vehicleSheetOverlay").addEventListener("click", (e)=>{
+  if(e.target.id === "vehicleSheetOverlay") closeVehicleSheet();
+});
+document.getElementById("vehicleSearchInput").addEventListener("input", (e)=>{
+  renderVehicleLists(e.target.value);
+});
+document.getElementById("vehicleOtherItem").addEventListener("click", ()=>{
+  closeVehicleSheet();
+  editTextField("valVehicle", profile.vehicle, (v)=>{ profile.vehicle = v || profile.vehicle; });
+});
+
 document.getElementById("notifToggle").addEventListener("click", ()=>{
   profile.notifications = !profile.notifications;
+  saveProfile();
   renderProfile();
 });
 
 async function init(){
+  // Profile's city is the user's home base — Explore starts there each time,
+  // but browsing a different city afterward never overwrites this setting.
+  if(CITIES.includes(profile.city)){
+    state.city = profile.city;
+    document.getElementById("cityLabel").textContent = profile.city;
+  }
   renderBottomNavs();
   renderAll(); // render immediately with demo data so the app is never blank
   renderProfile();
