@@ -1,0 +1,2449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AmpCharge — EV Charging Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-deep:#0F1B2E;
+    --navy-panel:#1B2A41;
+    --navy-panel-2:#233854;
+    --line:#2C3E5A;
+    --text-hi:#F5F3EE;
+    --text-lo:#9FB0C3;
+    --amber:#F2A93B;
+    --amber-dim:#8A6423;
+    --teal:#3FA796;
+    --teal-dim:#1E4F47;
+    --rose:#E2574C;
+    --rose-dim:#5A2A26;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:#080D16;
+    font-family:'Inter',sans-serif;
+    color:var(--text-hi);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:24px 12px;
+  }
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  .shell{
+    width:390px;
+    max-width:100%;
+    height:844px;
+    max-height:96vh;
+    background:var(--navy-deep);
+    border-radius:38px;
+    border:1px solid #1c2c44;
+    box-shadow:0 40px 80px rgba(0,0,0,0.55), inset 0 0 0 6px #05080f;
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+  }
+  .notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:130px; height:24px; background:#05080f; border-radius:0 0 16px 16px; z-index:50;
+  }
+
+  .screen{ flex:1; display:none; flex-direction:column; overflow:hidden; position:relative; }
+  .screen.active{display:flex;}
+
+  .topbar{
+    padding:20px 20px 14px;
+    display:flex; flex-direction:column; gap:14px;
+    background:linear-gradient(180deg, var(--navy-panel) 0%, var(--navy-deep) 100%);
+    border-bottom:1px solid var(--line);
+  }
+  .brand-row{display:flex; align-items:center; justify-content:space-between;}
+  .brand{display:flex; align-items:center; gap:9px;}
+  .brand .mark{ width:30px;height:30px;border-radius:9px; background:var(--amber); display:flex;align-items:center;justify-content:center; color:var(--navy-deep); font-weight:700; font-size:16px; }
+  .brand .name{font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; letter-spacing:0.2px;}
+  .brand .name span{color:var(--amber);}
+  .city-pick{ display:flex; align-items:center; gap:5px; font-size:13px; color:var(--text-lo); background:var(--navy-panel-2); padding:6px 10px 6px 8px; border-radius:20px; border:1px solid var(--line); }
+  .city-pick svg{width:13px;height:13px;}
+
+  .searchbar{ display:flex; align-items:center; gap:10px; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:14px; padding:11px 14px; }
+  .searchbar svg{width:17px;height:17px; color:var(--text-lo); flex-shrink:0;}
+  .searchbar input{ background:none; border:none; outline:none; color:var(--text-hi); font-family:'Inter'; font-size:14px; width:100%; }
+  .searchbar input::placeholder{color:var(--text-lo);}
+
+  .chips{display:flex; gap:8px; overflow-x:auto; padding:2px 1px 4px; scrollbar-width:none;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{ flex-shrink:0; font-size:12.5px; font-weight:500; padding:7px 13px; border-radius:20px; border:1px solid var(--line); color:var(--text-lo); background:var(--navy-panel-2); cursor:pointer; white-space:nowrap; transition:all .15s ease; }
+  .chip.on{ background:var(--amber); color:var(--navy-deep); border-color:var(--amber); font-weight:600; }
+
+  .viewtoggle{ display:flex; margin:14px 20px 0; background:var(--navy-panel-2); border-radius:12px; padding:3px; border:1px solid var(--line); }
+  .viewtoggle button{ flex:1; padding:8px 0; border:none; background:none; color:var(--text-lo); font-family:'Inter'; font-size:13px; font-weight:600; border-radius:9px; cursor:pointer; }
+  .viewtoggle button.on{ background:var(--teal); color:#05201b; }
+
+  .list-scroll{ flex:1; overflow-y:auto; padding:14px 20px 100px; display:flex; flex-direction:column; gap:12px; }
+  .list-scroll::-webkit-scrollbar{width:0;}
+  .empty{ text-align:center; padding:60px 20px; color:var(--text-lo); }
+  .empty .big{font-family:'Space Grotesk'; font-size:16px; color:var(--text-hi); margin-bottom:6px;}
+
+  .card{ background:var(--navy-panel); border:1px solid var(--line); border-radius:16px; padding:14px; cursor:pointer; transition:border-color .15s ease; }
+  .card:active{ border-color:var(--amber); }
+  .card-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .card-title{ font-family:'Space Grotesk'; font-size:15px; font-weight:600; line-height:1.3; }
+  .card-sub{ font-size:12px; color:var(--text-lo); margin-top:3px; }
+  .status-dot{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:4px 9px; border-radius:20px; flex-shrink:0; }
+  .status-available{ background:var(--teal-dim); color:#7EE0CC; }
+  .status-busy{ background:var(--amber-dim); color:#FFCE85; }
+  .status-offline{ background:var(--rose-dim); color:#FF9C93; }
+  .offline-warning{ display:flex; align-items:center; gap:8px; background:var(--rose-dim); border:1px solid #7A3530; color:#FFB4AC; font-size:12px; font-weight:600; padding:9px 11px; border-radius:10px; margin-top:11px; }
+  .offline-warning svg{ width:15px; height:15px; flex-shrink:0; }
+  .card.is-offline{ opacity:0.88; }
+  .status-dot .d{ width:6px;height:6px;border-radius:50%; background:currentColor; }
+
+  .card-meta{ display:flex; align-items:center; gap:14px; margin-top:11px; font-size:12.5px; color:var(--text-lo); }
+  .card-meta .m{ display:flex; align-items:center; gap:5px; }
+  .card-meta svg{ width:13px; height:13px; }
+
+  .badges{ display:flex; gap:6px; margin-top:11px; flex-wrap:wrap; }
+  .badge{ font-size:11px; font-weight:600; padding:4px 8px; border-radius:7px; background:var(--navy-panel-2); color:var(--text-lo); border:1px solid var(--line); }
+
+  .card-bottom{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:11px; border-top:1px solid var(--line); }
+  .price{ font-family:'Space Grotesk'; font-size:16px; font-weight:600; color:var(--amber); }
+  .price span{ font-size:11px; color:var(--text-lo); font-weight:400; font-family:'Inter'; }
+  .fav-btn{ background:none; border:none; cursor:pointer; color:var(--text-lo); padding:4px; }
+  .fav-btn svg{ width:19px; height:19px; }
+  .fav-btn.on{ color:var(--amber); }
+
+  .map-wrap{ flex:1; position:relative; overflow:hidden; background:#0B1526; }
+  .map-svg{ width:100%; height:100%; display:block; }
+  .pin{ cursor:pointer; }
+  .pin circle.ring{ opacity:0.18; }
+  .pin.selected circle.core{ stroke:var(--text-hi); stroke-width:2; }
+  .map-card{ position:absolute; left:16px; right:16px; bottom:16px; background:var(--navy-panel); border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow:0 10px 30px rgba(0,0,0,0.4); }
+
+  .sheet-overlay{ position:absolute; inset:0; background:rgba(5,8,15,0.6); z-index:60; display:none; align-items:flex-end; }
+  .sheet-overlay.active{ display:flex; }
+  .sheet{ width:100%; max-height:88%; background:var(--navy-panel); border-radius:24px 24px 0 0; border:1px solid var(--line); border-bottom:none; display:flex; flex-direction:column; overflow:hidden; animation:slideup .22s ease-out; }
+  @keyframes slideup{ from{transform:translateY(100%);} to{transform:translateY(0);} }
+  .sheet-handle{ width:36px; height:4px; background:var(--line); border-radius:4px; margin:10px auto 4px; }
+  .sheet-scroll{ overflow-y:auto; padding:6px 22px 26px; }
+  .sheet-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-top:8px; }
+  .sheet-title{ font-family:'Space Grotesk'; font-size:19px; font-weight:600; line-height:1.3; }
+  .sheet-addr{ font-size:12.5px; color:var(--text-lo); margin-top:5px; }
+  .close-x{ background:var(--navy-panel-2); border:1px solid var(--line); width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-lo); flex-shrink:0; }
+
+  .sheet-stat-row{ display:flex; gap:10px; margin-top:16px; }
+  .stat-box{ flex:1; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:13px; padding:11px; text-align:center; }
+  .stat-box .v{ font-family:'Space Grotesk'; font-size:15px; font-weight:600; }
+  .stat-box .l{ font-size:10.5px; color:var(--text-lo); margin-top:2px; }
+
+  .sec-label{ font-size:12px; font-weight:600; color:var(--text-lo); margin:20px 0 10px; letter-spacing:0.2px; }
+  .conn-row{ display:flex; justify-content:space-between; align-items:center; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:12px; padding:11px 13px; margin-bottom:8px; }
+  .conn-name{ font-size:13.5px; font-weight:600; }
+  .conn-power{ font-size:11.5px; color:var(--text-lo); margin-top:2px; }
+  .conn-price{ font-family:'Space Grotesk'; font-size:14px; color:var(--amber); font-weight:600; }
+
+  .amen-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .amen{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-lo); background:var(--navy-panel-2); border:1px solid var(--line); padding:7px 11px; border-radius:20px; }
+  .amen svg{ width:13px; height:13px; }
+
+  .cta-row{ display:flex; gap:10px; margin-top:22px; }
+  .btn{ flex:1; padding:13px; border-radius:13px; border:none; font-family:'Inter'; font-weight:600; font-size:14px; cursor:pointer; }
+  .btn-primary{ background:var(--amber); color:var(--navy-deep); }
+  .btn-ghost{ background:var(--navy-panel-2); color:var(--text-hi); border:1px solid var(--line); }
+
+  .toast{ position:absolute; bottom:110px; left:50%; transform:translateX(-50%); background:var(--text-hi); color:var(--navy-deep); font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:20px; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:80; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
+
+  .bottomnav{ display:flex; border-top:1px solid var(--line); background:var(--navy-panel); padding:10px 6px 14px; position:relative; z-index:40; }
+  .navitem{ flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; color:var(--text-lo); }
+  .navitem svg{ width:20px; height:20px; }
+  .navitem span{ font-size:10px; font-weight:500; }
+  .navitem.on{ color:var(--amber); }
+
+  .fav-empty{ text-align:center; padding:80px 30px; color:var(--text-lo); }
+  .fav-empty svg{ width:38px; height:38px; margin-bottom:14px; opacity:0.5; }
+
+  .profile-block{ padding:20px; }
+  .profile-card{ background:var(--navy-panel); border:1px solid var(--line); border-radius:16px; padding:18px; display:flex; gap:13px; align-items:center; }
+  .avatar{ width:48px; height:48px; border-radius:50%; background:var(--amber); display:flex; align-items:center; justify-content:center; color:var(--navy-deep); font-family:'Space Grotesk'; font-weight:700; font-size:18px; }
+  .profile-name{ font-family:'Space Grotesk'; font-weight:600; font-size:15.5px; }
+  .profile-sub{ font-size:12px; color:var(--text-lo); margin-top:2px; }
+  .settings-row{ display:flex; justify-content:space-between; align-items:center; padding:15px 4px; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .settings-row .l{ display:flex; align-items:center; gap:11px; color:var(--text-hi); }
+  .settings-row svg{ width:17px; height:17px; color:var(--text-lo); }
+  .settings-row .r{ color:var(--text-lo); font-size:12px; }
+  .settings-row.editable{ cursor:pointer; }
+  .settings-row .edit-icon{ width:14px; height:14px; color:var(--text-lo); margin-left:6px; flex-shrink:0; }
+  .settings-row .r-wrap{ display:flex; align-items:center; }
+  .inline-edit-input{ background:var(--navy-panel-2); border:1px solid var(--amber); border-radius:8px; padding:6px 9px; color:var(--text-hi); font-size:12.5px; font-family:'Inter'; text-align:right; width:140px; outline:none; }
+  .toggle-switch{ width:38px; height:22px; border-radius:20px; background:var(--navy-panel-2); border:1px solid var(--line); position:relative; cursor:pointer; flex-shrink:0; }
+  .toggle-switch.on{ background:var(--teal); border-color:var(--teal); }
+  .toggle-switch .knob{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--text-hi); transition:transform .15s ease; }
+  .toggle-switch.on .knob{ transform:translateX(16px); background:#05201b; }
+  .profile-name-input{ background:var(--navy-panel-2); border:1px solid var(--amber); border-radius:8px; padding:5px 9px; color:var(--text-hi); font-family:'Space Grotesk'; font-size:14.5px; font-weight:600; outline:none; }
+  #profileNameDisplay{ cursor:pointer; }
+
+  /* ---- trip planner ---- */
+  .trip-form{ padding:18px 20px 8px; display:flex; flex-direction:column; gap:10px; }
+  .field-label{ font-size:11.5px; color:var(--text-lo); font-weight:600; margin-bottom:2px; }
+  .place-field{ position:relative; }
+  .place-input-row{ display:flex; align-items:center; gap:10px; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:13px; padding:12px 14px; }
+  .place-input-row svg{ width:16px; height:16px; color:var(--text-lo); flex-shrink:0; }
+  .place-input-row input{ background:none; border:none; outline:none; color:var(--text-hi); font-family:'Inter'; font-size:14px; width:100%; }
+  .swap-row{ display:flex; align-items:center; gap:10px; margin:-2px 0; }
+  .swap-line{ flex:1; height:1px; background:var(--line); }
+  .swap-btn{ width:30px; height:30px; border-radius:50%; background:var(--navy-panel-2); border:1px solid var(--line); color:var(--amber); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .swap-btn svg{ width:15px; height:15px; }
+  .autocomplete{ position:absolute; top:calc(100% + 6px); left:0; right:0; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:13px; max-height:190px; overflow-y:auto; z-index:30; display:none; box-shadow:0 12px 24px rgba(0,0,0,0.4); }
+  .autocomplete.show{ display:block; }
+  .ac-item{ padding:11px 14px; font-size:13.5px; cursor:pointer; border-bottom:1px solid var(--line); }
+  .ac-item:last-child{ border-bottom:none; }
+  .ac-item:hover, .ac-item.hi{ background:var(--navy-deep); }
+  .ac-item .tag{ font-size:10.5px; color:var(--text-lo); margin-left:6px; }
+
+  .range-row{ display:flex; gap:10px; }
+  .range-box{ flex:1; }
+  .range-box .place-input-row input{ font-family:'Space Grotesk'; font-weight:600; }
+
+  .plan-btn{ margin-top:6px; background:var(--amber); color:var(--navy-deep); border:none; padding:14px; border-radius:13px; font-family:'Inter'; font-weight:700; font-size:14.5px; cursor:pointer; }
+
+  .trip-results{ flex:1; overflow-y:auto; padding:6px 20px 100px; }
+  .trip-summary{ background:var(--navy-panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-top:14px; }
+  .trip-summary-route{ font-family:'Space Grotesk'; font-size:15.5px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .trip-summary-route svg{ width:15px; height:15px; color:var(--amber); }
+  .trip-summary-stats{ display:flex; gap:10px; margin-top:13px; }
+
+  .timeline{ margin-top:22px; position:relative; padding-left:26px; }
+  .tl-node{ position:relative; padding-bottom:26px; }
+  .tl-node:last-child{ padding-bottom:0; }
+  .tl-node::before{ content:''; position:absolute; left:-26px; top:4px; width:12px; height:12px; border-radius:50%; background:var(--amber); border:3px solid var(--navy-deep); box-shadow:0 0 0 2px var(--amber); z-index:2; }
+  .tl-node.mid::before{ background:var(--teal); box-shadow:0 0 0 2px var(--teal); }
+  .tl-node::after{ content:''; position:absolute; left:-21px; top:16px; bottom:-10px; width:2px; background:var(--line); }
+  .tl-node:last-child::after{ display:none; }
+  .tl-label{ font-size:11px; color:var(--text-lo); font-weight:600; margin-bottom:4px; }
+  .tl-card{ background:var(--navy-panel); border:1px solid var(--line); border-radius:14px; padding:13px; }
+  .tl-title{ font-family:'Space Grotesk'; font-size:14.5px; font-weight:600; }
+  .tl-sub{ font-size:12px; color:var(--text-lo); margin-top:3px; }
+  .tl-meta{ display:flex; gap:14px; margin-top:10px; font-size:12px; color:var(--text-lo); }
+  .tl-meta b{ color:var(--text-hi); font-weight:600; }
+  .charge-bar{ height:6px; border-radius:4px; background:var(--navy-panel-2); margin-top:10px; overflow:hidden; display:flex; }
+  .charge-fill{ height:100%; background:linear-gradient(90deg, var(--rose), var(--amber) 50%, var(--teal)); }
+
+  .trip-note{ font-size:11.5px; color:var(--text-lo); margin-top:18px; line-height:1.5; padding-bottom:10px; }
+
+  /* ---- city select sheet ---- */
+  .locate-btn{ display:flex; align-items:center; gap:10px; background:var(--teal-dim); border:1px solid var(--teal); color:#7EE0CC; padding:12px 14px; border-radius:13px; font-size:13.5px; font-weight:600; cursor:pointer; margin-top:16px; }
+  .near-me-btn{ display:flex; align-items:center; justify-content:center; gap:8px; background:var(--amber); color:var(--navy-deep); padding:11px 14px; border-radius:13px; font-size:13.5px; font-weight:700; cursor:pointer; margin-top:12px; }
+  .near-me-btn.loading{ opacity:0.75; }
+  .near-me-btn.active{ background:var(--teal); }
+  .vehicle-item{ display:flex; align-items:center; justify-content:space-between; padding:13px 14px; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:12px; margin-bottom:8px; cursor:pointer; font-size:13.5px; }
+  .vehicle-item .vi-tag{ font-size:10.5px; color:var(--text-lo); background:var(--navy-deep); border:1px solid var(--line); padding:3px 8px; border-radius:8px; }
+  .locate-btn svg{ width:17px; height:17px; flex-shrink:0; }
+  .locate-btn.loading{ opacity:0.7; }
+  .city-item{ display:flex; align-items:center; justify-content:space-between; padding:13px 14px; background:var(--navy-panel-2); border:1px solid var(--line); border-radius:12px; margin-bottom:8px; cursor:pointer; font-size:13.5px; }
+  .suggest-banner{ display:flex; align-items:center; gap:10px; background:var(--navy-panel-2); border:1px dashed var(--line); border-radius:13px; padding:11px 14px; margin:0 20px 14px; cursor:pointer; font-size:12.5px; color:var(--text-lo); }
+  .suggest-banner svg{ width:16px; height:16px; color:var(--amber); flex-shrink:0; }
+  .lock-gate{ background:var(--navy-panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:12px; }
+  .pending-card{ background:var(--navy-panel-2); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:8px; }
+  .pending-card .pc-title{ font-size:13.5px; font-weight:600; }
+  .pending-card .pc-sub{ font-size:11.5px; color:var(--text-lo); margin-top:2px; }
+  .pending-actions{ display:flex; gap:8px; margin-top:10px; }
+  .pending-actions button{ flex:1; padding:8px; border-radius:9px; border:none; font-size:12.5px; font-weight:600; cursor:pointer; }
+  .approve-btn{ background:var(--teal-dim); color:#7EE0CC; }
+  .reject-btn{ background:var(--rose-dim); color:#FF9C93; }
+  .confirm-actions{ display:flex; gap:10px; margin-top:18px; }
+  .confirm-actions button{ flex:1; padding:14px; border-radius:13px; border:none; font-weight:700; font-size:14.5px; cursor:pointer; }
+  .yes-btn{ background:var(--teal); color:#05201b; }
+  .confirm-actions .reject-btn{ padding:14px; border-radius:13px; font-weight:700; font-size:14.5px; }
+  .detected-place{ background:var(--navy-panel-2); border:1px solid var(--line); border-radius:13px; padding:14px; text-align:center; }
+  .detected-place .dp-label{ font-size:11px; color:var(--text-lo); margin-bottom:6px; }
+  .detected-place .dp-name{ font-family:'Space Grotesk'; font-size:15px; font-weight:600; }
+  .city-item .tag{ font-size:10.5px; color:var(--text-lo); background:var(--navy-deep); border:1px solid var(--line); padding:3px 8px; border-radius:8px; }
+  .city-item.current{ border-color:var(--amber); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="notch"></div>
+
+  <!-- ============ EXPLORE SCREEN ============ -->
+  <div class="screen active" id="screen-explore">
+    <div class="topbar">
+      <div class="brand-row">
+        <div class="brand">
+          <div class="mark">⚡</div>
+          <div class="name display">Amp<span>Charge</span></div>
+        </div>
+        <div class="city-pick" id="cityPick">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          <span id="cityLabel">Bengaluru</span>
+        </div>
+      </div>
+      <div class="searchbar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="searchInput" placeholder="Search stations, area, network…">
+      </div>
+      <div class="near-me-btn" id="nearMeBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        <span id="nearMeBtnLabel">Find stations near me</span>
+      </div>
+      <div class="chips" id="chipRow"></div>
+    </div>
+
+    <div class="viewtoggle">
+      <button class="on" id="tabList">List</button>
+      <button id="tabMap">Map</button>
+    </div>
+
+    <div class="suggest-banner" id="suggestBanner" style="margin-top:14px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Don't see a station you know about? Suggest one — we'll review and add it.</span>
+    </div>
+
+    <div class="list-scroll" id="listScroll"></div>
+
+    <div class="map-wrap" id="mapWrap" style="display:none;">
+      <svg class="map-svg" viewBox="0 0 390 560" id="mapSvg"></svg>
+      <div class="map-card" id="mapCard" style="display:none;"></div>
+    </div>
+
+    <div class="bottomnav" data-active="explore"></div>
+  </div>
+
+  <!-- ============ TRIP PLANNER SCREEN ============ -->
+  <div class="screen" id="screen-trip">
+    <div class="topbar" style="padding-bottom:16px;">
+      <div class="brand-row">
+        <div class="name display" style="font-size:19px;">Trip planner</div>
+      </div>
+      <div style="font-size:12.5px; color:var(--text-lo);">Plan any route across India — we'll place your charging stops for you.</div>
+    </div>
+
+    <div class="trip-results" id="tripScroll">
+      <div class="trip-form">
+        <div class="place-field">
+          <div class="field-label">From</div>
+          <div class="place-input-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            <input id="fromInput" placeholder="Any state, district, town or village" autocomplete="off">
+          </div>
+          <div class="autocomplete" id="fromAc"></div>
+        </div>
+
+        <div class="swap-row">
+          <div class="swap-line"></div>
+          <div class="swap-btn" id="swapBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"/></svg>
+          </div>
+          <div class="swap-line"></div>
+        </div>
+
+        <div class="place-field">
+          <div class="field-label">To</div>
+          <div class="place-input-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <input id="toInput" placeholder="Any state, district, town or village" autocomplete="off">
+          </div>
+          <div class="autocomplete" id="toAc"></div>
+        </div>
+
+        <div class="range-row">
+          <div class="range-box">
+            <div class="field-label">EV range (full charge)</div>
+            <div class="place-input-row">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>
+              <input id="rangeInput" type="number" value="300" placeholder="km">
+            </div>
+          </div>
+          <div class="range-box">
+            <div class="field-label">Starting charge</div>
+            <div class="place-input-row">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              <input id="startChargeInput" type="number" value="100" placeholder="%">
+            </div>
+          </div>
+        </div>
+
+        <button class="plan-btn" id="planBtn">Plan trip</button>
+      </div>
+
+      <div id="tripOutput"></div>
+    </div>
+
+    <div class="bottomnav" data-active="trip"></div>
+  </div>
+
+  <!-- ============ FAVORITES SCREEN ============ -->
+  <div class="screen" id="screen-favorites">
+    <div class="topbar">
+      <div class="brand-row">
+        <div class="name display" style="font-size:19px;">Favorites</div>
+      </div>
+    </div>
+    <div class="list-scroll" id="favScroll"></div>
+    <div class="bottomnav" data-active="favorites"></div>
+  </div>
+
+  <!-- ============ PROFILE SCREEN ============ -->
+  <div class="screen" id="screen-profile">
+    <div class="topbar">
+      <div class="brand-row">
+        <div class="name display" style="font-size:19px;">Profile</div>
+      </div>
+    </div>
+    <div class="profile-block" style="overflow-y:auto; padding-bottom:100px;">
+      <div class="profile-card">
+        <div class="avatar" id="profileAvatar">L</div>
+        <div>
+          <div class="profile-name" id="profileNameDisplay">Logesh</div>
+          <div class="profile-sub" id="profileSub">EV owner · Bengaluru</div>
+        </div>
+      </div>
+      <div style="margin-top:22px;">
+        <div class="settings-row editable" id="rowVehicle"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>Vehicle</div><div class="r-wrap"><div class="r" id="valVehicle">Tata Nexon EV</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div></div>
+        <div class="settings-row editable" id="rowConnector"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="10" rx="2"/><path d="M23 13v-2"/></svg>Connector type</div><div class="r-wrap"><div class="r" id="valConnector">CCS2</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div></div>
+        <div class="settings-row editable" id="rowCity"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>City</div><div class="r-wrap"><div class="r" id="valCity">Bengaluru</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div></div>
+        <div class="settings-row"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Notifications</div><div class="toggle-switch on" id="notifToggle"><div class="knob"></div></div></div>
+        <div class="settings-row"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>Charging history</div><div class="r">12 sessions</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-lo);margin-top:10px;">Tap name, vehicle or connector to edit. Saved for this session — add sign-in to keep it across visits.</div>
+
+      <div class="sec-label" style="margin-top:26px;">Operator tools</div>
+      <div class="stat-box" style="text-align:left;padding:13px 14px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;" id="backendStatusLine">
+          <span id="backendStatusDot" style="width:8px;height:8px;border-radius:50%;background:var(--rose);display:inline-block;margin-top:4px;flex-shrink:0;"></span>
+          <span id="backendStatusText" style="min-width:0;word-break:break-word;">Checking database connection…</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-lo);margin-top:6px;">New stations added here (or directly in your database) appear for every user instantly — no app update needed.</div>
+      </div>
+
+      <div class="lock-gate" id="lockGate">
+        <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--text-lo);"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          Operator access only
+        </div>
+        <div style="font-size:11.5px;color:var(--text-lo);margin:6px 0 12px;">These tools publish directly to the live app. Enter the operator passcode to unlock.</div>
+        <div class="place-input-row"><input id="adminPasscodeInput" type="password" placeholder="Operator passcode"></div>
+        <button class="plan-btn" id="unlockAdminBtn" style="margin-top:10px;">Unlock</button>
+        <div id="unlockMsg" style="font-size:11.5px;color:var(--rose);margin-top:6px;"></div>
+      </div>
+
+      <div id="adminTools" style="display:none;">
+        <button class="plan-btn" id="seedBtn" style="margin-top:4px;background:var(--navy-panel-2);color:var(--text-hi);border:1px solid var(--line);">Seed demo stations into database</button>
+
+        <div class="sec-label">Pending suggestions from customers</div>
+        <div id="pendingList"><div style="font-size:12.5px;color:var(--text-lo);">Connect a database to see customer suggestions here.</div></div>
+      </div>
+    </div>
+    <div class="bottomnav" data-active="profile"></div>
+  </div>
+
+  <div class="sheet-overlay" id="sheetOverlay">
+    <div class="sheet" id="sheetInner"></div>
+  </div>
+
+  <div class="sheet-overlay" id="citySheetOverlay">
+    <div class="sheet" id="citySheetInner" style="max-height:80%;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll" style="padding-top:6px;">
+        <div class="sheet-head">
+          <div class="sheet-title">Choose your city</div>
+          <div class="close-x" id="closeCitySheet">✕</div>
+        </div>
+        <div class="locate-btn" id="locateBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          <span id="locateBtnLabel">Use my current location</span>
+        </div>
+        <div class="searchbar" style="margin-top:14px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="citySearchInput" placeholder="Search any state, district, town or village…">
+        </div>
+        <div class="sec-label" style="margin-bottom:8px;">Cities with listed stations</div>
+        <div id="supportedCityList"></div>
+        <div class="sec-label" id="moreCitiesLabel" style="display:none;">Villages, towns, districts & states</div>
+        <div id="moreCityList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="vehicleSheetOverlay">
+    <div class="sheet" id="vehicleSheetInner" style="max-height:80%;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll" style="padding-top:6px;">
+        <div class="sheet-head">
+          <div class="sheet-title">Choose your vehicle</div>
+          <div class="close-x" id="closeVehicleSheet">✕</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-lo);margin-top:6px;">Picking your model sets the right charger type automatically.</div>
+        <div class="searchbar" style="margin-top:14px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="vehicleSearchInput" placeholder="Search your vehicle model…">
+        </div>
+        <div class="sec-label" style="margin-bottom:8px;">Cars</div>
+        <div id="vehicleCarList"></div>
+        <div class="sec-label">Two-wheelers</div>
+        <div id="vehicleTwoWheelerList"></div>
+        <div class="vehicle-item" id="vehicleOtherItem" style="margin-top:4px;">
+          <span>Other / not listed — type it myself</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="suggestSheetOverlay">
+    <div class="sheet" id="suggestSheetInner" style="max-height:88%;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-scroll" style="padding-top:6px;">
+        <div class="sheet-head">
+          <div class="sheet-title">Suggest a station</div>
+          <div class="close-x" id="closeSuggestSheet">✕</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-lo);margin-top:6px;">Fill in what you know — our team reviews every suggestion before it goes live for other users.</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+          <div class="field-label">Station name</div>
+          <div class="place-input-row"><input id="sugName" placeholder="e.g. Market Road Charging Point"></div>
+
+          <div class="field-label" style="margin-top:4px;">Address / area</div>
+          <div class="place-field">
+            <div class="place-input-row">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              <input id="sugPlaceInput" placeholder="Type any address, area, town or village" autocomplete="off">
+            </div>
+            <div class="autocomplete" id="sugPlaceAc"></div>
+          </div>
+          <div class="locate-btn" id="sugLocateBtn" style="margin-top:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            <span id="sugLocateBtnLabel">Or use my current location</span>
+          </div>
+
+          <div class="field-label" style="margin-top:4px;">Charger type</div>
+          <div class="settings-row editable" id="sugConnectorRow" style="background:var(--navy-panel-2);border-radius:13px;padding:11px 14px;">
+            <div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="10" rx="2"/><path d="M23 13v-2"/></svg>Tap to change</div>
+            <div class="r-wrap"><div class="r" id="sugConnectorVal">CCS2</div><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+          </div>
+
+          <div class="range-row">
+            <div class="range-box">
+              <div class="field-label">Power (optional)</div>
+              <div class="place-input-row"><input id="sugPower" type="number" placeholder="kW"></div>
+            </div>
+            <div class="range-box">
+              <div class="field-label">Price (optional)</div>
+              <div class="place-input-row"><input id="sugPrice" type="number" placeholder="₹/kWh"></div>
+            </div>
+          </div>
+
+          <button class="plan-btn" id="submitSuggestionBtn" style="margin-top:6px;">Submit for review</button>
+          <div id="suggestMsg" style="font-size:11.5px;color:var(--text-lo);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- Firebase compat SDK — classic <script> tags, not ES modules. This is
+     more reliable than dynamic import() when this file is opened directly
+     (file://) rather than served from a real web address, since some
+     browsers restrict ES module imports in that context. -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script type="module">
+/* =====================================================================
+   BACKEND CONFIG — connect a real, shared database so new stations
+   appear for every user instantly, with no app update or re-submission
+   to Play Store required.
+
+   HOW TO GO LIVE (about 5 minutes, free, no credit card):
+   1. Go to https://console.firebase.google.com → "Add project" → give it
+      any name → you can skip Google Analytics.
+   2. Inside the project: click "Build > Firestore Database" → "Create
+      database" → choose a region → start in TEST MODE.
+   3. Once created, go to the Firestore "Rules" tab and replace the
+      rules with the block below, then click "Publish":
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /stations/{doc} { allow read, write: if true; }
+          }
+        }
+      (This is fully open — fine for a prototype/testing phase. Before
+      a real public launch, tighten "write" so random people can't spam
+      your station list — e.g. require sign-in, or route additions
+      through a review step.)
+   4. Back in the project overview, click the "</>" (Web) icon to
+      register a web app → it shows you a firebaseConfig object.
+   5. Paste that object below, replacing the placeholder, and flip
+      FIREBASE_ENABLED to true.
+   6. Reload this file. Open the Profile tab → tap "Seed demo stations"
+      once to copy the 16 built-in demo stations into your new
+      database. From then on, use "Add a charging station" in Profile
+      (or add rows straight from the Firebase console) — every device
+      running this app sees it immediately, no update needed.
+
+   Until you do this, the app runs on the built-in demo data below,
+   exactly as before — nothing breaks if you leave it disabled.
+===================================================================== */
+const FIREBASE_ENABLED = true; // connected to Logesh's AmpCharger Firebase project
+const firebaseConfig = {
+  apiKey: "AIzaSyDmQSv7VGrN778V3yJNWKHSohYi60RkrIs",
+  authDomain: "ampcharger-29a43.firebaseapp.com",
+  projectId: "ampcharger-29a43",
+  storageBucket: "ampcharger-29a43.firebasestorage.app",
+  messagingSenderId: "866901788949",
+  appId: "1:866901788949:web:dbd626d098cc82e1af811c",
+};
+
+let db = null; // Firestore handle once connected; stays null in demo mode
+
+// Soft UI gate for the operator tools in Profile — change this to your own
+// value. NOTE: this only hides the buttons in this app's interface. It is
+// NOT real security — anyone who can read this file's source can read this
+// constant too, and if your Firestore rules allow open writes (as set up
+// in the test-mode instructions above), someone could still write to your
+// database directly, bypassing this app entirely. Before a real public
+// launch, replace this with actual Firebase Authentication and restrict
+// writes to the "stations" collection to a signed-in admin UID in your
+// Firestore rules — e.g.:
+//   match /stations/{doc} {
+//     allow read: if true;
+//     allow write: if request.auth != null && request.auth.uid == "YOUR_ADMIN_UID";
+//   }
+//   match /suggestions/{doc} {
+//     allow read, write: if true; // anyone can submit a suggestion
+//   }
+const ADMIN_PASSCODE = "amp2026"; // change this
+
+// ---------------------------------------------------------------------
+// Partner network feeds — placeholder only. Real EV-charging apps pull
+// live station lists from the networks themselves (Statiq, Tata Power,
+// ChargeZone, Ather Grid, etc.) once you have a data-sharing agreement
+// and API credentials with them. There's no public, keyless API for this
+// — it has to come from an actual partnership, which I can't set up on
+// your behalf. Wire it up here once you have real credentials:
+async function loadFromPartnerFeed(networkName, apiCredentials){
+  // TODO: call the partner's real API here once you have access, e.g.:
+  //   const res = await fetch(`https://api.<network>.com/stations`, {
+  //     headers: { Authorization: `Bearer ${apiCredentials.token}` }
+  //   });
+  //   return (await res.json()).map(mapToStationShape);
+  return [];
+}
+
+let lastBackendError = null;
+
+async function initBackend(){
+  if(!FIREBASE_ENABLED) return null;
+  try{
+    if(typeof firebase === "undefined"){
+      throw new Error("Firebase script tags didn't load — no internet, or gstatic.com is blocked");
+    }
+    if(!firebase.firestore){
+      throw new Error("Firestore SDK script didn't load (app SDK loaded, but firestore-compat.js didn't)");
+    }
+    const app = firebase.initializeApp(firebaseConfig);
+    return app.firestore();
+  } catch(e){
+    lastBackendError = e.message || String(e);
+    console.warn("Backend connection failed, falling back to demo data:", e);
+    return null;
+  }
+}
+
+async function loadStationsFromBackend(database){
+  const snap = await database.collection("stations").get();
+  const loaded = [];
+  let n = 1;
+  snap.forEach(docSnap=>{
+    const d = docSnap.data();
+    loaded.push({ ...d, id: n++, fsId: docSnap.id });
+  });
+  return loaded;
+}
+
+async function seedDemoStationsToBackend(database, demoStations){
+  for(const s of demoStations){
+    const { id, ...rest } = s; // let the database assign its own id
+    await database.collection("stations").add(rest);
+  }
+}
+
+// Customer-submitted stations go here first, not into "stations" directly —
+// they only become visible in the app once an operator approves them below.
+async function submitStationSuggestion(database, suggestion){
+  return database.collection("suggestions").add(suggestion);
+}
+
+async function loadPendingSuggestions(database){
+  const snap = await database.collection("suggestions").get();
+  const loaded = [];
+  snap.forEach(docSnap => loaded.push({ ...docSnap.data(), fsId: docSnap.id }));
+  return loaded;
+}
+
+async function approveSuggestion(database, suggestion){
+  const { fsId, ...rest } = suggestion;
+  // publish it as a real, live station with sensible defaults for fields the
+  // simple suggestion form doesn't collect
+  await database.collection("stations").add({
+    network: "Community reported", status: "available", rating: 4.0,
+    connectors: [{type:"CCS2", power:50, price:18}], amenities: [],
+    ...rest,
+  });
+  await database.collection("suggestions").doc(fsId).delete();
+}
+
+async function rejectSuggestion(database, fsId){
+  await database.collection("suggestions").doc(fsId).delete();
+}
+
+/* ---------------- DATA: local stations ---------------- */
+const CITIES = ["Bengaluru","Mumbai","Delhi NCR","Hyderabad","Chennai","Pune"];
+const CITY_COORDS = {
+  "Bengaluru": {lat:12.9716, lng:77.5946},
+  "Mumbai": {lat:19.0760, lng:72.8777},
+  "Delhi NCR": {lat:28.6139, lng:77.2090},
+  "Hyderabad": {lat:17.3850, lng:78.4867},
+  "Chennai": {lat:13.0827, lng:80.2707},
+  "Pune": {lat:18.5204, lng:73.8567},
+};
+
+const DEMO_STATIONS = [
+  {id:1, city:"Bengaluru", name:"Koramangala Charge Hub", area:"Koramangala 5th Block", network:"Statiq", distance:1.2, status:"available", rating:4.5,
+   connectors:[{type:"CCS2",power:50,price:18},{type:"Type 2 AC",power:22,price:12}], amenities:["cafe","restroom","wifi"], x:120,y:180, lat:12.9352, lng:77.6245},
+  {id:2, city:"Bengaluru", name:"Whitefield ITPL Point", area:"ITPL Main Road", network:"Tata Power", distance:3.8, status:"busy", rating:4.2,
+   connectors:[{type:"CCS2",power:60,price:19},{type:"CHAdeMO",power:50,price:19}], amenities:["restroom","parking"], x:300,y:120, lat:12.9698, lng:77.7500},
+  {id:3, city:"Bengaluru", name:"Indiranagar Metro Charge", area:"100 Feet Road", network:"Ather Grid", distance:0.9, status:"available", rating:4.7,
+   connectors:[{type:"Type 2 AC",power:7,price:10},{type:"Bharat AC001",power:3,price:9}], amenities:["cafe"], x:180,y:250, lat:12.9784, lng:77.6408},
+  {id:4, city:"Bengaluru", name:"Electronic City Fast DC", area:"Phase 1", network:"Statiq", distance:6.4, status:"offline", rating:3.9,
+   connectors:[{type:"CCS2",power:100,price:21}], amenities:["restroom","wifi","parking"], x:240,y:400, lat:12.8452, lng:77.6602},
+  {id:5, city:"Mumbai", name:"Bandra Kurla Complex Hub", area:"BKC, G Block", network:"Tata Power", distance:2.1, status:"available", rating:4.6,
+   connectors:[{type:"CCS2",power:60,price:20},{type:"Type 2 AC",power:22,price:13}], amenities:["cafe","wifi","restroom"], x:150,y:160, lat:19.0596, lng:72.8656},
+  {id:6, city:"Mumbai", name:"Powai Lakeside Charge", area:"Hiranandani Gardens", network:"ChargeZone", distance:4.0, status:"busy", rating:4.3,
+   connectors:[{type:"CCS2",power:50,price:19}], amenities:["parking"], x:280,y:220, lat:19.1176, lng:72.9060},
+  {id:7, city:"Mumbai", name:"Andheri East Station", area:"MIDC", network:"Statiq", distance:1.5, status:"available", rating:4.1,
+   connectors:[{type:"Type 2 AC",power:22,price:12},{type:"Bharat AC001",power:3,price:9}], amenities:["restroom"], x:200,y:300, lat:19.1136, lng:72.8697},
+  {id:8, city:"Delhi NCR", name:"Connaught Place Charge Point", area:"Inner Circle", network:"EESL", distance:2.5, status:"available", rating:4.4,
+   connectors:[{type:"CCS2",power:50,price:17},{type:"Type 2 AC",power:22,price:11}], amenities:["cafe","wifi"], x:160,y:190, lat:28.6315, lng:77.2167},
+  {id:9, city:"Delhi NCR", name:"Gurugram Cyber Hub Station", area:"DLF Cyber City", network:"Tata Power", distance:5.2, status:"available", rating:4.8,
+   connectors:[{type:"CCS2",power:100,price:22},{type:"CHAdeMO",power:60,price:20}], amenities:["cafe","restroom","wifi","parking"], x:100,y:350, lat:28.4949, lng:77.0890},
+  {id:10, city:"Delhi NCR", name:"Noida Sector 62 Point", area:"Electronic City", network:"ChargeZone", distance:8.1, status:"offline", rating:3.7,
+   connectors:[{type:"CCS2",power:50,price:18}], amenities:["parking"], x:320,y:260, lat:28.6274, lng:77.3716},
+  {id:11, city:"Hyderabad", name:"HITEC City Fast Charge", area:"Cyber Towers", network:"Statiq", distance:1.8, status:"available", rating:4.5,
+   connectors:[{type:"CCS2",power:60,price:19},{type:"Type 2 AC",power:22,price:12}], amenities:["cafe","wifi"], x:180,y:170, lat:17.4435, lng:78.3772},
+  {id:12, city:"Hyderabad", name:"Banjara Hills Charge", area:"Road No. 12", network:"Ather Grid", distance:3.3, status:"busy", rating:4.0,
+   connectors:[{type:"Type 2 AC",power:7,price:10}], amenities:["restroom"], x:260,y:280, lat:17.4156, lng:78.4347},
+  {id:13, city:"Chennai", name:"OMR Tech Corridor Hub", area:"Sholinganallur", network:"Tata Power", distance:2.9, status:"available", rating:4.3,
+   connectors:[{type:"CCS2",power:50,price:18},{type:"Type 2 AC",power:22,price:12}], amenities:["cafe","restroom"], x:140,y:210, lat:12.9010, lng:80.2279},
+  {id:14, city:"Chennai", name:"T Nagar City Point", area:"Usman Road", network:"ChargeZone", distance:1.1, status:"available", rating:4.2,
+   connectors:[{type:"Bharat AC001",power:3,price:9}], amenities:["parking"], x:220,y:150, lat:13.0418, lng:80.2341},
+  {id:15, city:"Pune", name:"Hinjewadi Phase 2 Hub", area:"Rajiv Gandhi Infotech Park", network:"Statiq", distance:4.5, status:"available", rating:4.6,
+   connectors:[{type:"CCS2",power:60,price:19},{type:"CHAdeMO",power:50,price:19}], amenities:["cafe","wifi","restroom"], x:170,y:230, lat:18.5908, lng:73.7389},
+  {id:16, city:"Pune", name:"Koregaon Park Charge", area:"North Main Road", network:"Ather Grid", distance:2.0, status:"busy", rating:4.4,
+   connectors:[{type:"Type 2 AC",power:22,price:12}], amenities:["cafe"], x:250,y:160, lat:18.5362, lng:73.8938},
+];
+
+// STATIONS is what the whole app renders from. It starts as a copy of the
+// built-in demo data, and gets replaced with live data from the database
+// once initBackend()/loadStationsFromBackend() finish (see init() at the
+// bottom of this file) — every other function below just reads STATIONS,
+// so nothing else needs to change when the source switches.
+let STATIONS = DEMO_STATIONS.map(s => ({...s}));
+
+/* ---------------- DATA: India-wide places (for trip planner) ---------------- */
+const PLACES = [
+  // All 28 states and 8 union territories (capital coordinates)
+  {name:"Andhra Pradesh", lat:16.573, lng:80.3575},
+  {name:"Arunachal Pradesh", lat:27.0844, lng:93.6053},
+  {name:"Assam", lat:26.1433, lng:91.7898},
+  {name:"Bihar", lat:25.5941, lng:85.1376},
+  {name:"Chhattisgarh", lat:21.2514, lng:81.6296},
+  {name:"Goa (State)", lat:15.4909, lng:73.8278},
+  {name:"Gujarat", lat:23.2156, lng:72.6369},
+  {name:"Haryana", lat:30.7333, lng:76.7794},
+  {name:"Himachal Pradesh", lat:31.1048, lng:77.1734},
+  {name:"Jharkhand", lat:23.3441, lng:85.3096},
+  {name:"Karnataka", lat:12.9716, lng:77.5946},
+  {name:"Kerala", lat:8.5241, lng:76.9366},
+  {name:"Madhya Pradesh", lat:23.2599, lng:77.4126},
+  {name:"Maharashtra", lat:19.076, lng:72.8777},
+  {name:"Manipur", lat:24.817, lng:93.9368},
+  {name:"Meghalaya", lat:25.5788, lng:91.8933},
+  {name:"Mizoram", lat:23.7271, lng:92.7176},
+  {name:"Nagaland", lat:25.6751, lng:94.1086},
+  {name:"Odisha", lat:20.2961, lng:85.8245},
+  {name:"Punjab", lat:30.7333, lng:76.7794},
+  {name:"Rajasthan", lat:26.9124, lng:75.7873},
+  {name:"Sikkim", lat:27.3389, lng:88.6065},
+  {name:"Tamil Nadu", lat:13.0827, lng:80.2707},
+  {name:"Telangana", lat:17.385, lng:78.4867},
+  {name:"Tripura", lat:23.8315, lng:91.2868},
+  {name:"Uttar Pradesh", lat:26.8467, lng:80.9462},
+  {name:"Uttarakhand", lat:30.3165, lng:78.0322},
+  {name:"West Bengal", lat:22.5726, lng:88.3639},
+  {name:"Andaman and Nicobar Islands", lat:11.6234, lng:92.7265},
+  {name:"Chandigarh (UT)", lat:30.7333, lng:76.7794},
+  {name:"Dadra and Nagar Haveli and Daman and Diu", lat:20.3974, lng:72.8328},
+  {name:"Delhi (UT)", lat:28.6139, lng:77.209},
+  {name:"Jammu and Kashmir", lat:34.0837, lng:74.7973},
+  {name:"Ladakh", lat:34.1526, lng:77.577},
+  {name:"Lakshadweep", lat:10.5669, lng:72.642},
+  {name:"Puducherry (UT)", lat:11.9416, lng:79.8083},
+  // Tamil Nadu — full district coverage
+  {name:"Chennai", lat:13.0827, lng:80.2707},
+  {name:"Coimbatore", lat:11.0168, lng:76.9558},
+  {name:"Madurai", lat:9.9252, lng:78.1198},
+  {name:"Tiruchirappalli", lat:10.7905, lng:78.7047},
+  {name:"Salem", lat:11.6643, lng:78.1460},
+  {name:"Tirunelveli", lat:8.7139, lng:77.7567},
+  {name:"Erode", lat:11.3410, lng:77.7172},
+  {name:"Vellore", lat:12.9165, lng:79.1325},
+  {name:"Thoothukudi", lat:8.7642, lng:78.1348},
+  {name:"Dindigul", lat:10.3673, lng:77.9803},
+  {name:"Thanjavur", lat:10.7870, lng:79.1378},
+  {name:"Ranipet", lat:12.9249, lng:79.3308},
+  {name:"Sivaganga", lat:9.8433, lng:78.4809},
+  {name:"Karur", lat:10.9601, lng:78.0766},
+  {name:"Namakkal", lat:11.2189, lng:78.1677},
+  {name:"Krishnagiri", lat:12.5266, lng:78.2150},
+  {name:"Dharmapuri", lat:12.1277, lng:78.1580},
+  {name:"Cuddalore", lat:11.7480, lng:79.7714},
+  {name:"Villupuram", lat:11.9401, lng:79.4861},
+  {name:"Kallakurichi", lat:11.7401, lng:78.9597},
+  {name:"Ariyalur", lat:11.1401, lng:79.0782},
+  {name:"Perambalur", lat:11.2333, lng:78.8833},
+  {name:"Pudukkottai", lat:10.3813, lng:78.8213},
+  {name:"Nagapattinam", lat:10.7657, lng:79.8424},
+  {name:"Tiruvarur", lat:10.7661, lng:79.6345},
+  {name:"Mayiladuthurai", lat:11.1017, lng:79.6521},
+  {name:"Theni", lat:10.0104, lng:77.4768},
+  {name:"Virudhunagar", lat:9.5851, lng:77.9573},
+  {name:"Ramanathapuram", lat:9.3639, lng:78.8395},
+  {name:"Kanyakumari", lat:8.1780, lng:77.4346},
+  {name:"Tenkasi", lat:8.9600, lng:77.3152},
+  {name:"Tirupathur", lat:12.4949, lng:78.5678},
+  {name:"Tiruvannamalai", lat:12.2253, lng:79.0747},
+  {name:"Kanchipuram", lat:12.8342, lng:79.7036},
+  {name:"Chengalpattu", lat:12.6921, lng:79.9764},
+  {name:"Tiruvallur", lat:13.1439, lng:79.9083},
+  {name:"Nilgiris", lat:11.4064, lng:76.6932},
+  {name:"Tiruppur", lat:11.1085, lng:77.3411},
+  {name:"Hosur", lat:12.7409, lng:77.8253},
+  // Karnataka
+  {name:"Bengaluru", lat:12.9716, lng:77.5946},
+  {name:"Mysuru", lat:12.2958, lng:76.6394},
+  {name:"Mangaluru", lat:12.9141, lng:74.8560},
+  {name:"Hubballi", lat:15.3647, lng:75.1240},
+  {name:"Belagavi", lat:15.8497, lng:74.4977},
+  {name:"Ballari", lat:15.1394, lng:76.9214},
+  {name:"Bidar", lat:17.9104, lng:77.5199},
+  {name:"Vijayapura", lat:16.8302, lng:75.7100},
+  {name:"Kalaburagi", lat:17.3297, lng:76.8343},
+  {name:"Shivamogga", lat:13.9299, lng:75.5681},
+  {name:"Tumakuru", lat:13.3392, lng:77.1140},
+  {name:"Davangere", lat:14.4644, lng:75.9218},
+  {name:"Chikkamagaluru", lat:13.3161, lng:75.7720},
+  {name:"Chitradurga", lat:14.2296, lng:76.3985},
+  {name:"Hassan", lat:13.0072, lng:76.0962},
+  {name:"Kolar", lat:13.1367, lng:78.1298},
+  {name:"Mandya", lat:12.5218, lng:76.8951},
+  {name:"Raichur", lat:16.2076, lng:77.3463},
+  {name:"Udupi", lat:13.3409, lng:74.7421},
+  {name:"Chamarajanagar", lat:11.9236, lng:76.9391},
+  // Kerala
+  {name:"Thiruvananthapuram", lat:8.5241, lng:76.9366},
+  {name:"Kollam", lat:8.8932, lng:76.6141},
+  {name:"Alappuzha", lat:9.4981, lng:76.3388},
+  {name:"Pathanamthitta", lat:9.2648, lng:76.7870},
+  {name:"Kottayam", lat:9.5916, lng:76.5222},
+  {name:"Idukki", lat:9.8497, lng:76.9721},
+  {name:"Kochi", lat:9.9312, lng:76.2673},
+  {name:"Thrissur", lat:10.5276, lng:76.2144},
+  {name:"Palakkad", lat:10.7867, lng:76.6548},
+  {name:"Malappuram", lat:11.0510, lng:76.0711},
+  {name:"Kozhikode", lat:11.2588, lng:75.7804},
+  {name:"Wayanad", lat:11.6854, lng:76.1320},
+  {name:"Kannur", lat:11.8745, lng:75.3704},
+  {name:"Kasaragod", lat:12.4996, lng:74.9869},
+  // Andhra Pradesh
+  {name:"Visakhapatnam", lat:17.6868, lng:83.2185},
+  {name:"Vijayawada", lat:16.5062, lng:80.6480},
+  {name:"Guntur", lat:16.3067, lng:80.4365},
+  {name:"Nellore", lat:14.4426, lng:79.9865},
+  {name:"Kurnool", lat:15.8281, lng:78.0373},
+  {name:"Kadapa", lat:14.4673, lng:78.8242},
+  {name:"Anantapur", lat:14.6819, lng:77.6006},
+  {name:"Chittoor", lat:13.2172, lng:79.1003},
+  {name:"Tirupati", lat:13.6288, lng:79.4192},
+  {name:"Rajahmundry", lat:17.0005, lng:81.8040},
+  {name:"Kakinada", lat:16.9891, lng:82.2475},
+  {name:"Eluru", lat:16.7107, lng:81.0952},
+  {name:"Srikakulam", lat:18.2949, lng:83.8938},
+  // Telangana
+  {name:"Hyderabad", lat:17.3850, lng:78.4867},
+  {name:"Warangal", lat:17.9689, lng:79.5941},
+  {name:"Nizamabad", lat:18.6725, lng:78.0941},
+  {name:"Karimnagar", lat:18.4386, lng:79.1288},
+  {name:"Khammam", lat:17.2473, lng:80.1514},
+  {name:"Mahbubnagar", lat:16.7375, lng:77.9857},
+  {name:"Nalgonda", lat:17.0575, lng:79.2683},
+  {name:"Adilabad", lat:19.6641, lng:78.5320},
+  // Maharashtra
+  {name:"Mumbai", lat:19.0760, lng:72.8777},
+  {name:"Pune", lat:18.5204, lng:73.8567},
+  {name:"Nagpur", lat:21.1458, lng:79.0882},
+  {name:"Nashik", lat:19.9975, lng:73.7898},
+  {name:"Chhatrapati Sambhajinagar", lat:19.8762, lng:75.3433},
+  {name:"Solapur", lat:17.6599, lng:75.9064},
+  {name:"Kolhapur", lat:16.7050, lng:74.2433},
+  {name:"Amravati", lat:20.9374, lng:77.7796},
+  {name:"Nanded", lat:19.1383, lng:77.3210},
+  {name:"Sangli", lat:16.8524, lng:74.5815},
+  {name:"Satara", lat:17.6805, lng:74.0183},
+  {name:"Jalgaon", lat:21.0077, lng:75.5626},
+  {name:"Akola", lat:20.7002, lng:77.0082},
+  {name:"Latur", lat:18.4088, lng:76.5604},
+  {name:"Dhule", lat:20.9042, lng:74.7749},
+  {name:"Ahmednagar", lat:19.0952, lng:74.7496},
+  {name:"Chandrapur", lat:19.9615, lng:79.2961},
+  {name:"Wardha", lat:20.7453, lng:78.6022},
+  // Gujarat
+  {name:"Ahmedabad", lat:23.0225, lng:72.5714},
+  {name:"Surat", lat:21.1702, lng:72.8311},
+  {name:"Vadodara", lat:22.3072, lng:73.1812},
+  {name:"Rajkot", lat:22.3039, lng:70.8022},
+  {name:"Bhavnagar", lat:21.7645, lng:72.1519},
+  {name:"Jamnagar", lat:22.4707, lng:70.0577},
+  {name:"Junagadh", lat:21.5222, lng:70.4579},
+  {name:"Gandhinagar", lat:23.2156, lng:72.6369},
+  {name:"Anand", lat:22.5645, lng:72.9289},
+  {name:"Mehsana", lat:23.5880, lng:72.3693},
+  {name:"Bharuch", lat:21.7051, lng:72.9959},
+  {name:"Porbandar", lat:21.6417, lng:69.6293},
+  // Rajasthan
+  {name:"Jaipur", lat:26.9124, lng:75.7873},
+  {name:"Jodhpur", lat:26.2389, lng:73.0243},
+  {name:"Udaipur", lat:24.5854, lng:73.7125},
+  {name:"Kota", lat:25.2138, lng:75.8648},
+  {name:"Bikaner", lat:28.0229, lng:73.3119},
+  {name:"Ajmer", lat:26.4499, lng:74.6399},
+  {name:"Bhilwara", lat:25.3407, lng:74.6313},
+  {name:"Alwar", lat:27.5530, lng:76.6346},
+  {name:"Sikar", lat:27.6094, lng:75.1399},
+  {name:"Bharatpur", lat:27.2152, lng:77.4909},
+  {name:"Pali", lat:25.7711, lng:73.3234},
+  {name:"Sri Ganganagar", lat:29.9094, lng:73.8807},
+  {name:"Barmer", lat:25.7521, lng:71.3963},
+  {name:"Jaisalmer", lat:26.9157, lng:70.9083},
+  // Madhya Pradesh
+  {name:"Bhopal", lat:23.2599, lng:77.4126},
+  {name:"Indore", lat:22.7196, lng:75.8577},
+  {name:"Gwalior", lat:26.2183, lng:78.1828},
+  {name:"Jabalpur", lat:23.1815, lng:79.9864},
+  {name:"Ujjain", lat:23.1765, lng:75.7885},
+  {name:"Sagar", lat:23.8388, lng:78.7378},
+  {name:"Satna", lat:24.6005, lng:80.8322},
+  {name:"Ratlam", lat:23.3315, lng:75.0367},
+  {name:"Rewa", lat:24.5362, lng:81.3037},
+  {name:"Chhindwara", lat:22.0574, lng:78.9382},
+  // Uttar Pradesh
+  {name:"Lucknow", lat:26.8467, lng:80.9462},
+  {name:"Kanpur", lat:26.4499, lng:80.3319},
+  {name:"Agra", lat:27.1767, lng:78.0081},
+  {name:"Varanasi", lat:25.3176, lng:82.9739},
+  {name:"Prayagraj", lat:25.4358, lng:81.8463},
+  {name:"Meerut", lat:28.9845, lng:77.7064},
+  {name:"Ghaziabad", lat:28.6692, lng:77.4538},
+  {name:"Noida", lat:28.5355, lng:77.3910},
+  {name:"Bareilly", lat:28.3670, lng:79.4304},
+  {name:"Aligarh", lat:27.8974, lng:78.0880},
+  {name:"Moradabad", lat:28.8386, lng:78.7733},
+  {name:"Saharanpur", lat:29.9680, lng:77.5460},
+  {name:"Gorakhpur", lat:26.7606, lng:83.3732},
+  {name:"Ayodhya", lat:26.7922, lng:82.1998},
+  {name:"Jhansi", lat:25.4484, lng:78.5685},
+  {name:"Mathura", lat:27.4924, lng:77.6737},
+  {name:"Firozabad", lat:27.1591, lng:78.3958},
+  {name:"Muzaffarnagar", lat:29.4727, lng:77.7085},
+  {name:"Rampur", lat:28.7983, lng:79.0250},
+  // Bihar
+  {name:"Patna", lat:25.5941, lng:85.1376},
+  {name:"Gaya", lat:24.7955, lng:85.0002},
+  {name:"Bhagalpur", lat:25.2425, lng:87.0079},
+  {name:"Muzaffarpur", lat:26.1225, lng:85.3906},
+  {name:"Darbhanga", lat:26.1542, lng:85.8918},
+  {name:"Purnia", lat:25.7771, lng:87.4753},
+  {name:"Bhojpur", lat:25.5570, lng:84.6633},
+  {name:"Begusarai", lat:25.4182, lng:86.1272},
+  {name:"Saran", lat:25.9204, lng:84.7501},
+  {name:"Katihar", lat:25.5394, lng:87.5699},
+  // West Bengal
+  {name:"Kolkata", lat:22.5726, lng:88.3639},
+  {name:"Howrah", lat:22.5958, lng:88.2636},
+  {name:"Durgapur", lat:23.5204, lng:87.3119},
+  {name:"Asansol", lat:23.6839, lng:86.9523},
+  {name:"Siliguri", lat:26.7271, lng:88.3953},
+  {name:"Malda", lat:25.0108, lng:88.1411},
+  {name:"Kharagpur", lat:22.3460, lng:87.2320},
+  {name:"Bardhaman", lat:23.2324, lng:87.8615},
+  {name:"Krishnanagar", lat:23.4058, lng:88.5023},
+  {name:"Jalpaiguri", lat:26.5417, lng:88.7196},
+  {name:"Darjeeling", lat:27.0410, lng:88.2663},
+  {name:"Purulia", lat:23.3421, lng:86.3654},
+  {name:"Bankura", lat:23.2324, lng:87.0708},
+  // Odisha
+  {name:"Bhubaneswar", lat:20.2961, lng:85.8245},
+  {name:"Cuttack", lat:20.4625, lng:85.8830},
+  {name:"Rourkela", lat:22.2604, lng:84.8536},
+  {name:"Berhampur", lat:19.3149, lng:84.7941},
+  {name:"Sambalpur", lat:21.4669, lng:83.9812},
+  {name:"Puri", lat:19.8135, lng:85.8312},
+  {name:"Balasore", lat:21.4942, lng:86.9317},
+  {name:"Jharsuguda", lat:21.8554, lng:84.0062},
+  {name:"Koraput", lat:18.8120, lng:82.7108},
+  // Punjab
+  {name:"Chandigarh", lat:30.7333, lng:76.7794},
+  {name:"Ludhiana", lat:30.9010, lng:75.8573},
+  {name:"Amritsar", lat:31.6340, lng:74.8723},
+  {name:"Jalandhar", lat:31.3260, lng:75.5762},
+  {name:"Patiala", lat:30.3398, lng:76.3869},
+  {name:"Bathinda", lat:30.2110, lng:74.9455},
+  {name:"Mohali", lat:30.7046, lng:76.7179},
+  {name:"Pathankot", lat:32.2746, lng:75.6524},
+  {name:"Hoshiarpur", lat:31.5343, lng:75.9115},
+  // Haryana
+  {name:"Gurugram", lat:28.4595, lng:77.0266},
+  {name:"Faridabad", lat:28.4089, lng:77.3178},
+  {name:"Panipat", lat:29.3909, lng:76.9635},
+  {name:"Ambala", lat:30.3752, lng:76.7821},
+  {name:"Karnal", lat:29.6857, lng:76.9905},
+  {name:"Hisar", lat:29.1492, lng:75.7217},
+  {name:"Rohtak", lat:28.8955, lng:76.6066},
+  {name:"Yamunanagar", lat:30.1290, lng:77.2674},
+  {name:"Sonipat", lat:28.9931, lng:77.0151},
+  // Assam
+  {name:"Guwahati", lat:26.1445, lng:91.7362},
+  {name:"Silchar", lat:24.8333, lng:92.7789},
+  {name:"Dibrugarh", lat:27.4728, lng:94.9120},
+  {name:"Jorhat", lat:26.7509, lng:94.2037},
+  {name:"Tezpur", lat:26.6528, lng:92.8000},
+  {name:"Nagaon", lat:26.3479, lng:92.6840},
+  {name:"Tinsukia", lat:27.4922, lng:95.3672},
+  // Jharkhand
+  {name:"Ranchi", lat:23.3441, lng:85.3096},
+  {name:"Jamshedpur", lat:22.8046, lng:86.2029},
+  {name:"Dhanbad", lat:23.7957, lng:86.4304},
+  {name:"Bokaro", lat:23.6693, lng:86.1511},
+  {name:"Hazaribagh", lat:23.9925, lng:85.3616},
+  {name:"Deoghar", lat:24.4823, lng:86.6961},
+  // Chhattisgarh
+  {name:"Raipur", lat:21.2514, lng:81.6296},
+  {name:"Bhilai", lat:21.2094, lng:81.4285},
+  {name:"Bilaspur", lat:22.0797, lng:82.1409},
+  {name:"Korba", lat:22.3595, lng:82.7501},
+  {name:"Durg", lat:21.1904, lng:81.2849},
+  {name:"Jagdalpur", lat:19.0748, lng:82.0232},
+  // Uttarakhand
+  {name:"Dehradun", lat:30.3165, lng:78.0322},
+  {name:"Haridwar", lat:29.9457, lng:78.1642},
+  {name:"Nainital", lat:29.3803, lng:79.4636},
+  {name:"Haldwani", lat:29.2183, lng:79.5130},
+  {name:"Rudrapur", lat:28.9873, lng:79.4004},
+  {name:"Roorkee", lat:29.8543, lng:77.8880},
+  // Himachal Pradesh
+  {name:"Shimla", lat:31.1048, lng:77.1734},
+  {name:"Manali", lat:32.2432, lng:77.1892},
+  {name:"Dharamshala", lat:32.2190, lng:76.3234},
+  {name:"Solan", lat:30.9045, lng:77.0967},
+  {name:"Mandi", lat:31.7084, lng:76.9319},
+  // Jammu & Kashmir / Ladakh
+  {name:"Srinagar", lat:34.0837, lng:74.7973},
+  {name:"Jammu", lat:32.7266, lng:74.8570},
+  {name:"Leh", lat:34.1526, lng:77.5770},
+  {name:"Anantnag", lat:33.7311, lng:75.1487},
+  {name:"Baramulla", lat:34.2093, lng:74.3436},
+  // Goa
+  {name:"Goa", lat:15.4909, lng:73.8278},
+  {name:"Margao", lat:15.2832, lng:73.9862},
+  // Northeast states
+  {name:"Agartala", lat:23.8315, lng:91.2868},
+  {name:"Imphal", lat:24.8170, lng:93.9368},
+  {name:"Aizawl", lat:23.7271, lng:92.7176},
+  {name:"Kohima", lat:25.6751, lng:94.1086},
+  {name:"Shillong", lat:25.5788, lng:91.8933},
+  {name:"Gangtok", lat:27.3389, lng:88.6065},
+  {name:"Itanagar", lat:27.0844, lng:93.6053},
+  // Union Territories
+  {name:"Delhi", lat:28.6139, lng:77.2090},
+  {name:"Puducherry", lat:11.9416, lng:79.8083},
+  {name:"Port Blair", lat:11.6234, lng:92.7265},
+  {name:"Silvassa", lat:20.2738, lng:72.9962},
+  {name:"Kavaratti", lat:10.5669, lng:72.6420},
+];
+
+const NETWORKS = ["Statiq","Tata Power","ChargeZone","Ather Grid","EESL"];
+
+let state = {
+  city: "Bengaluru",
+  location: null, // {label, lat, lng} when the user picked a village/town/their own location
+  search: "",
+  filter: "all",
+  favorites: new Set(),
+  view: "list",
+  nav: "explore",
+  selectedStationId: null,
+};
+
+let tripState = { stops: [], acField: null, from: null, to: null };
+
+/* ---------------- HELPERS: local stations ---------------- */
+function stationsForCity(city){ return STATIONS.filter(s=>s.city===city); }
+
+// Real distance from the chosen place to a station (only when both have coordinates)
+function stationWithDistance(s){
+  if(state.location && s.lat != null && s.lng != null){
+    return {...s, distance: Math.round(haversine(state.location, s)*10)/10};
+  }
+  return s;
+}
+
+function filteredStations(){
+  let list = state.location
+    ? STATIONS.filter(s => s.lat != null && s.lng != null).map(stationWithDistance)
+    : stationsForCity(state.city);
+  if(state.search.trim()){
+    const q = state.search.trim().toLowerCase();
+    list = list.filter(s => s.name.toLowerCase().includes(q) || s.area.toLowerCase().includes(q) || s.network.toLowerCase().includes(q));
+  }
+  if(state.filter === "fast") list = list.filter(s => s.connectors.some(c => c.power >= 50));
+  if(state.filter === "ac") list = list.filter(s => s.connectors.some(c => c.type.includes("AC")));
+  if(state.filter === "available") list = list.filter(s => s.status === "available");
+  if(state.filter === "mycharger") list = list.filter(s => s.connectors.some(c => c.type === profile.connector));
+  list = list.sort((a,b)=>a.distance-b.distance);
+  return state.location ? list.slice(0, 10) : list; // nearest 10 when browsing from a village/town
+}
+
+function statusLabel(s){ return {available:"Available", busy:"Busy", offline:"Offline"}[s]; }
+function minPrice(station){ return Math.min(...station.connectors.map(c=>c.price)); }
+
+function iconFor(name){
+  const icons = {
+    cafe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><path d="M17 9h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M6 2v2M9 2v2M12 2v2"/></svg>',
+    restroom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v13M8 12h8"/></svg>',
+    wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8.5a16 16 0 0 1 20 0"/><path d="M5.5 12.5a11 11 0 0 1 13 0"/><path d="M9 16.5a6 6 0 0 1 6 0"/><circle cx="12" cy="20" r="1"/></svg>',
+    parking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 16V8h4a2.5 2.5 0 0 1 0 5H9"/></svg>',
+  };
+  return icons[name] || "";
+}
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 1600);
+}
+
+function findStationById(id){
+  const s = STATIONS.find(x=>x.id===id);
+  if(s) return stationWithDistance(s);
+  return tripState.stops.map(x=>x.station).find(x=>x && x.id===id);
+}
+
+/* ---------------- BOTTOM NAV (shared render) ---------------- */
+const NAV_ITEMS = [
+  {key:"explore", label:"Explore", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>'},
+  {key:"trip", label:"Trip", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>'},
+  {key:"favorites", label:"Favorites", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>'},
+  {key:"profile", label:"Profile", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'},
+];
+
+function renderBottomNavs(){
+  document.querySelectorAll(".bottomnav").forEach(nav=>{
+    const active = nav.dataset.active;
+    nav.innerHTML = NAV_ITEMS.map(it=>`
+      <div class="navitem ${it.key===active?'on':''}" data-nav="${it.key}">
+        ${it.svg}
+        <span>${it.label}</span>
+      </div>`).join("");
+  });
+  document.querySelectorAll(".navitem").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      state.nav = el.dataset.nav;
+      document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+      document.getElementById("screen-"+state.nav).classList.add("active");
+      renderAll();
+    });
+  });
+}
+
+/* ---------------- RENDER: chips ---------------- */
+function renderChips(){
+  const chips = [
+    {key:"mycharger", label:`⚡ Fits my ${profile.connector}`},
+    {key:"all", label:"All stations"},
+    {key:"available", label:"Available now"},
+    {key:"fast", label:"Fast DC 50kW+"},
+    {key:"ac", label:"AC charging"},
+  ];
+  const row = document.getElementById("chipRow");
+  row.innerHTML = chips.map(c => `<div class="chip ${state.filter===c.key?'on':''}" data-filter="${c.key}">${c.label}</div>`).join("");
+  row.querySelectorAll(".chip").forEach(el=>{
+    el.addEventListener("click", ()=>{ state.filter = el.dataset.filter; renderAll(); });
+  });
+}
+
+/* ---------------- RENDER: card html ---------------- */
+function cardHtml(s){
+  const isFav = state.favorites.has(s.id);
+  const isOffline = s.status === "offline";
+  const badges = s.connectors.map(c=>`<div class="badge">${c.type} · ${c.power}kW</div>`).join("");
+  return `
+  <div class="card ${isOffline?'is-offline':''}" data-id="${s.id}">
+    <div class="card-top">
+      <div>
+        <div class="card-title">${s.name}</div>
+        <div class="card-sub">${s.area} · ${s.network}</div>
+      </div>
+      <div class="status-dot status-${s.status}"><span class="d"></span>${statusLabel(s.status)}</div>
+    </div>
+    ${isOffline ? `<div class="offline-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Reported offline — may not be working right now</div>` : ''}
+    <div class="card-meta">
+      <div class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>${s.distance} km away</div>
+      <div class="m">★ ${s.rating}</div>
+    </div>
+    <div class="badges">${badges}</div>
+    <div class="card-bottom">
+      <div class="price">₹${minPrice(s)}<span>/kWh onwards</span></div>
+      <button class="fav-btn ${isFav?'on':''}" data-fav="${s.id}">
+        <svg viewBox="0 0 24 24" fill="${isFav?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+function attachCardHandlers(container){
+  container.querySelectorAll(".card").forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      if(e.target.closest(".fav-btn")) return;
+      openSheet(parseInt(el.dataset.id));
+    });
+  });
+  container.querySelectorAll(".fav-btn").forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      toggleFav(parseInt(el.dataset.fav));
+    });
+  });
+}
+
+function toggleFav(id){
+  if(state.favorites.has(id)){
+    state.favorites.delete(id);
+    showToast("Removed from favorites");
+  } else {
+    state.favorites.add(id);
+    showToast("Saved to favorites");
+  }
+  renderAll();
+}
+
+/* ---------------- RENDER: list ---------------- */
+function renderList(){
+  const wrap = document.getElementById("listScroll");
+  const list = filteredStations();
+  const where = state.location ? state.location.label.split(",")[0] : state.city;
+  if(list.length===0){
+    wrap.innerHTML = `<div class="empty"><div class="big">No stations found</div>Try a different filter or search term for ${where}.</div>`;
+    return;
+  }
+  const note = state.location
+    ? `<div style="font-size:12px;color:var(--text-lo);background:var(--navy-panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;">No charging stations are listed in <b style="color:var(--text-hi)">${where}</b> yet. Here are the nearest ones, with the real distance from there. Know a station nearby? Tap “Suggest a station”.</div>`
+    : "";
+  wrap.innerHTML = note + list.map(cardHtml).join("");
+  attachCardHandlers(wrap);
+}
+
+function renderFavorites(){
+  const wrap = document.getElementById("favScroll");
+  const list = STATIONS.filter(s=>state.favorites.has(s.id)).map(stationWithDistance).sort((a,b)=>a.distance-b.distance);
+  if(list.length===0){
+    wrap.innerHTML = `<div class="fav-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      <div>No favorites yet. Star a station to keep it handy for your next trip.</div>
+    </div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(cardHtml).join("");
+  attachCardHandlers(wrap);
+}
+
+function renderMap(){
+  const svg = document.getElementById("mapSvg");
+  const list = filteredStations();
+  const statusColor = {available:"#3FA796", busy:"#F2A93B", offline:"#E2574C"};
+  let roads = `
+    <line x1="0" y1="140" x2="390" y2="90" stroke="#1E2C42" stroke-width="10"/>
+    <line x1="0" y1="320" x2="390" y2="380" stroke="#1E2C42" stroke-width="10"/>
+    <line x1="70" y1="0" x2="150" y2="560" stroke="#1E2C42" stroke-width="8"/>
+    <line x1="280" y1="0" x2="230" y2="560" stroke="#1E2C42" stroke-width="8"/>
+  `;
+  let bg = `<rect width="390" height="560" fill="#0B1526"/>`;
+  let dots = "";
+  for(let i=0;i<60;i++){ dots += `<circle cx="${(i*37)%390}" cy="${(i*91)%560}" r="1" fill="#16233A"/>`; }
+  let pins = list.map(s=>{
+    const c = statusColor[s.status];
+    const selected = state.selectedStationId === s.id ? "selected":"";
+    // Newly added / live stations may not carry the stylized map x/y used for
+    // this decorative grid — derive a stable pseudo-position from lat/lng
+    // (or the id) so pins never end up at NaN/undefined instead of crashing.
+    const px = s.x != null ? s.x : Math.abs(Math.round((s.lat||s.id||0) * 977)) % 350 + 20;
+    const py = s.y != null ? s.y : Math.abs(Math.round((s.lng||s.id||0) * 977)) % 500 + 30;
+    return `<g class="pin ${selected}" data-id="${s.id}" transform="translate(${px},${py})">
+      <circle class="ring" r="16" fill="${c}"/>
+      <circle class="core" r="9" fill="${c}"/>
+      <text x="0" y="4" text-anchor="middle" font-size="10" font-weight="700" fill="#0B1526">⚡</text>
+    </g>`;
+  }).join("");
+  svg.innerHTML = bg + dots + roads + pins;
+  svg.querySelectorAll(".pin").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const id = parseInt(el.dataset.id);
+      state.selectedStationId = id;
+      renderMap();
+      showMapCard(id);
+    });
+  });
+}
+
+function showMapCard(id){
+  const s = STATIONS.find(x=>x.id===id);
+  const card = document.getElementById("mapCard");
+  card.style.display = "block";
+  card.innerHTML = cardHtml(s);
+  attachCardHandlers(card);
+}
+
+/* ---------------- RENDER: detail sheet ---------------- */
+function openSheet(id){
+  const s = findStationById(id);
+  if(!s) return;
+  state.selectedStationId = id;
+  const isFav = state.favorites.has(id);
+  const connectorRows = s.connectors.map(c=>`
+    <div class="conn-row">
+      <div>
+        <div class="conn-name">${c.type}</div>
+        <div class="conn-power">${c.power} kW · ${c.power>=50?'DC fast charging':'AC charging'}</div>
+      </div>
+      <div class="conn-price">₹${c.price}<span style="font-size:10px;color:var(--text-lo);font-weight:400;">/kWh</span></div>
+    </div>`).join("");
+  const amenRow = s.amenities.map(a=>`<div class="amen">${iconFor(a)} ${a[0].toUpperCase()+a.slice(1)}</div>`).join("");
+
+  document.getElementById("sheetInner").innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-scroll">
+      <div class="sheet-head">
+        <div>
+          <div class="sheet-title">${s.name}</div>
+          <div class="sheet-addr">${s.area}, ${s.city} · ${s.network}</div>
+        </div>
+        <div class="close-x" id="closeSheet">✕</div>
+      </div>
+      <div class="sheet-stat-row">
+        <div class="stat-box"><div class="v">${s.distance} km</div><div class="l">Distance</div></div>
+        <div class="stat-box"><div class="v">★ ${s.rating}</div><div class="l">Rating</div></div>
+        <div class="stat-box"><div class="v" style="color:${s.status==='available'?'#7EE0CC':s.status==='busy'?'#FFCE85':'#FF9C93'}">${statusLabel(s.status)}</div><div class="l">Status</div></div>
+      </div>
+      ${s.status==='offline' ? `<div class="offline-warning" style="margin-top:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>This station has been reported offline. Charging may not be available — consider another station nearby.</div>` : ''}
+      <div class="sec-label">Connectors & pricing</div>
+      ${connectorRows}
+      <div class="sec-label">Amenities</div>
+      <div class="amen-row">${amenRow}</div>
+      <div class="cta-row">
+        <button class="btn btn-ghost" id="favSheetBtn">${isFav ? '★ Saved' : '☆ Save'}</button>
+        <button class="btn btn-primary" id="directionsBtn">Get directions</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("sheetOverlay").classList.add("active");
+  document.getElementById("closeSheet").addEventListener("click", closeSheet);
+  document.getElementById("favSheetBtn").addEventListener("click", ()=>{ toggleFav(id); openSheet(id); });
+  document.getElementById("directionsBtn").addEventListener("click", ()=>{
+    if(s.lat != null && s.lng != null){
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=driving`;
+      window.open(url, "_blank");
+    } else {
+      const query = encodeURIComponent(`${s.name}, ${s.area}, ${s.city}`);
+      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
+    }
+  });
+}
+function closeSheet(){ document.getElementById("sheetOverlay").classList.remove("active"); }
+document.getElementById("sheetOverlay").addEventListener("click", (e)=>{
+  if(e.target.id === "sheetOverlay") closeSheet();
+});
+
+/* ---------------- TOGGLES ---------------- */
+document.getElementById("tabList").addEventListener("click", ()=>{
+  state.view = "list";
+  document.getElementById("tabList").classList.add("on");
+  document.getElementById("tabMap").classList.remove("on");
+  document.getElementById("listScroll").style.display = "flex";
+  document.getElementById("mapWrap").style.display = "none";
+});
+document.getElementById("tabMap").addEventListener("click", ()=>{
+  if(state.location){ showToast("Map view is available when a city with stations is selected"); return; }
+  state.view = "map";
+  document.getElementById("tabMap").classList.add("on");
+  document.getElementById("tabList").classList.remove("on");
+  document.getElementById("listScroll").style.display = "none";
+  document.getElementById("mapWrap").style.display = "block";
+  renderMap();
+});
+
+document.getElementById("searchInput").addEventListener("input", (e)=>{
+  state.search = e.target.value;
+  renderList();
+});
+
+const cityPick = document.getElementById("cityPick");
+cityPick.addEventListener("click", openCitySheet);
+
+function updateCityLabel(){
+  document.getElementById("cityLabel").textContent = state.location ? state.location.label.split(",")[0] : state.city;
+  const nearBtn = document.getElementById("nearMeBtn");
+  const nearLabel = document.getElementById("nearMeBtnLabel");
+  nearBtn.classList.toggle("active", !!state.location);
+  nearLabel.textContent = state.location ? `Showing nearest to ${state.location.label.split(",")[0]}` : "Find stations near me";
+}
+
+function selectCity(name){
+  state.city = name;
+  state.location = null;
+  updateCityLabel();
+  closeCitySheet();
+  renderAll();
+}
+
+// Any village, town, district or state: show the stations nearest to it
+function selectPlace(place){
+  state.location = { label: place.label, lat: place.lat, lng: place.lng };
+  // leave map view if it was open — the stylised map only works for one city
+  if(state.view === "map"){ document.getElementById("tabList").click(); }
+  updateCityLabel();
+  closeCitySheet();
+  renderAll();
+  showToast(`Showing stations nearest to ${place.label.split(",")[0]}`);
+}
+
+function cityItemHtml(name, tag){
+  const isCurrent = !state.location && name === state.city;
+  return `<div class="city-item ${isCurrent?'current':''}" data-city="${name}">
+    <span>${name}</span>
+    ${tag ? `<span class="tag">${tag}</span>` : (isCurrent ? `<span class="tag">Current</span>` : '')}
+  </div>`;
+}
+
+let cityMoreResults = [];
+let citySearchSeq = 0;
+let citySearchDebounce = null;
+
+function renderSupportedCities(query){
+  const q = (query||"").trim().toLowerCase();
+  const supportedWrap = document.getElementById("supportedCityList");
+  const supportedMatches = CITIES.filter(c => !q || c.toLowerCase().includes(q));
+  supportedWrap.innerHTML = supportedMatches.length
+    ? supportedMatches.map(c=>cityItemHtml(c)).join("")
+    : `<div style="font-size:12.5px;color:var(--text-lo);padding:6px 2px;">No supported city matches.</div>`;
+  supportedWrap.querySelectorAll(".city-item").forEach(el=>{
+    el.addEventListener("click", ()=> selectCity(el.dataset.city));
+  });
+}
+
+function renderCityLists(query){
+  renderSupportedCities(query);
+
+  const moreWrap = document.getElementById("moreCityList");
+  const moreLabel = document.getElementById("moreCitiesLabel");
+  const q = (query||"").trim();
+  clearTimeout(citySearchDebounce);
+
+  if(q.length < 2){
+    moreLabel.style.display = "none";
+    moreWrap.innerHTML = "";
+    return;
+  }
+
+  moreLabel.style.display = "block";
+  moreWrap.innerHTML = `<div style="font-size:12.5px;color:var(--text-lo);padding:6px 2px;">Searching every state, district, town and village in India…</div>`;
+  const mySeq = ++citySearchSeq;
+  citySearchDebounce = setTimeout(async ()=>{
+    const results = await geocodeSearch(q);
+    if(mySeq !== citySearchSeq) return; // stale
+    cityMoreResults = results.filter(r => !CITIES.some(c => r.label.toLowerCase().startsWith(c.toLowerCase())));
+    if(cityMoreResults.length===0){
+      moreWrap.innerHTML = `<div style="font-size:12.5px;color:var(--text-lo);padding:6px 2px;">No matches found.</div>` + liveSearchNote();
+      return;
+    }
+    moreWrap.innerHTML = cityMoreResults.map((p,i)=>cityItemHtml(p.label, "Nearest stations").replace(`data-city="${p.label}"`, `data-idx="${i}"`)).join("") + liveSearchNote();
+    moreWrap.querySelectorAll(".city-item").forEach(el=>{
+      el.addEventListener("click", ()=>{
+        const place = cityMoreResults[parseInt(el.dataset.idx)];
+        if(!place) return;
+        selectPlace(place);
+      });
+    });
+  }, 450);
+}
+
+function nearestSupportedCity(place){
+  let best = CITIES[0], bestD = Infinity;
+  for(const name of CITIES){
+    const d = haversine(place, CITY_COORDS[name]);
+    if(d < bestD){ bestD = d; best = name; }
+  }
+  return best;
+}
+
+function openCitySheet(){
+  document.getElementById("citySearchInput").value = "";
+  renderCityLists("");
+  document.getElementById("citySheetOverlay").classList.add("active");
+}
+function closeCitySheet(){ document.getElementById("citySheetOverlay").classList.remove("active"); }
+document.getElementById("closeCitySheet").addEventListener("click", closeCitySheet);
+document.getElementById("citySheetOverlay").addEventListener("click", (e)=>{
+  if(e.target.id === "citySheetOverlay") closeCitySheet();
+});
+document.getElementById("citySearchInput").addEventListener("input", (e)=>{
+  renderCityLists(e.target.value);
+});
+
+function findNearbyViaGPS(btn, label){
+  if(!navigator.geolocation){
+    showToast("Location isn't available in this browser");
+    return;
+  }
+  const originalLabel = label.textContent;
+  btn.classList.add("loading");
+  label.textContent = "Finding your location…";
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      btn.classList.remove("loading");
+      label.textContent = originalLabel;
+      const here = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+      selectPlace({ label: "Your location", lat: here.lat, lng: here.lng });
+    },
+    (err)=>{
+      btn.classList.remove("loading");
+      label.textContent = originalLabel;
+      const reasons = {1:"Location access is blocked for this site — check Chrome's site permissions.", 2:"Your device couldn't determine a location right now.", 3:"Location took too long — try again outdoors or near a window."};
+      showToast(reasons[err.code] || "Couldn't get your location — pick a city below");
+    },
+    {timeout:20000, enableHighAccuracy:false, maximumAge:120000}
+  );
+}
+
+document.getElementById("locateBtn").addEventListener("click", ()=>{
+  findNearbyViaGPS(document.getElementById("locateBtn"), document.getElementById("locateBtnLabel"));
+});
+document.getElementById("nearMeBtn").addEventListener("click", ()=>{
+  findNearbyViaGPS(document.getElementById("nearMeBtn"), document.getElementById("nearMeBtnLabel"));
+});
+
+/* ================= TRIP PLANNER LOGIC ================= */
+function haversine(a,b){
+  const R = 6371;
+  const dLat = (b.lat-a.lat)*Math.PI/180;
+  const dLng = (b.lng-a.lng)*Math.PI/180;
+  const la1 = a.lat*Math.PI/180, la2 = b.lat*Math.PI/180;
+  const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function roadDistance(a,b){ return haversine(a,b) * 1.22; } // approx road-vs-straight-line factor
+function pointAtFraction(a,b,t){ return { lat: a.lat + (b.lat-a.lat)*t, lng: a.lng + (b.lng-a.lng)*t }; }
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+/* Live, India-wide place search. Tries several free public place databases
+   (GeoNames via Open-Meteo, OpenStreetMap Nominatim, and Photon) so if one is
+   blocked or slow the others still answer. Together they cover states,
+   districts, towns and villages across India — far more than could ever be
+   stored inside this file. The built-in PLACES list is only a last resort. */
+const GEOCODE_BASE = "https://nominatim.openstreetmap.org";
+let liveSearchWorking = null; // true/false after the first search; drives the warning shown to users
+
+async function fetchJson(url, ms){
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), ms || 7000);
+  try{
+    const res = await fetch(url, { signal: ctrl.signal });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    return await res.json();
+  } finally { clearTimeout(timer); }
+}
+
+function placeLabel(d){
+  const a = d.address || {};
+  const place = a.city || a.town || a.village || a.hamlet || a.municipality || a.suburb || a.county || (d.display_name||"").split(",")[0];
+  const district = a.state_district || a.county;
+  const state = a.state;
+  if(place && state) return (district && district!==place) ? `${place}, ${district}, ${state}` : `${place}, ${state}`;
+  return d.display_name || place || "Unknown location";
+}
+
+async function searchOpenMeteo(q){
+  const data = await fetchJson(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=en&format=json&countryCode=IN`);
+  return (data.results || []).map(r => ({
+    label: [r.name, (r.admin2 && r.admin2 !== r.name) ? r.admin2 : null, r.admin1].filter(Boolean).join(", "),
+    lat: r.latitude, lng: r.longitude,
+  }));
+}
+
+async function searchNominatim(q){
+  const data = await fetchJson(`${GEOCODE_BASE}/search?format=jsonv2&addressdetails=1&countrycodes=in&limit=8&accept-language=en&q=${encodeURIComponent(q)}`);
+  return (Array.isArray(data) ? data : []).map(d => ({ label: placeLabel(d), lat: parseFloat(d.lat), lng: parseFloat(d.lon) }));
+}
+
+async function searchPhoton(q){
+  const data = await fetchJson(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10&lang=en&bbox=68.1,6.5,97.5,35.8`);
+  return (data.features || [])
+    .filter(f => (f.properties||{}).countrycode === "IN")
+    .map(f => {
+      const p = f.properties;
+      return {
+        label: [p.name, (p.district || p.county) && (p.district || p.county) !== p.name ? (p.district || p.county) : null, p.state].filter(Boolean).join(", "),
+        lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0],
+      };
+    });
+}
+
+function localSearchFallback(query){
+  const q = query.trim().toLowerCase();
+  return PLACES.filter(p=>p.name.toLowerCase().includes(q)).map(p=>({label:p.name, lat:p.lat, lng:p.lng}));
+}
+function localNearestFallback(point, exclude){
+  let best = null, bestD = Infinity;
+  for(const p of PLACES){
+    if(exclude && exclude.has(p.name)) continue;
+    const d = haversine(point, p);
+    if(d < bestD){ bestD = d; best = p; }
+  }
+  return best ? {label: best.name, lat: best.lat, lng: best.lng} : null;
+}
+
+function dedupePlaces(list){
+  const seen = new Set();
+  return list.filter(p => {
+    if(!p || isNaN(p.lat) || isNaN(p.lng)) return false;
+    const key = p.label.split(",")[0].trim().toLowerCase() + "|" + p.lat.toFixed(1) + "|" + p.lng.toFixed(1);
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// If someone types a country name (India's neighbors or anywhere else),
+// the live geocoders can still return a loosely-matched Indian place instead
+// of admitting there's no match — so country names are blocked outright and
+// treated as "no place found," rather than letting a fuzzy match through.
+const COUNTRY_NAMES = new Set([
+  "afghanistan","albania","algeria","andorra","angola","antigua and barbuda","argentina","armenia","australia","austria","azerbaijan",
+  "bahamas","bahrain","bangladesh","barbados","belarus","belgium","belize","benin","bhutan","bolivia","bosnia","bosnia and herzegovina",
+  "botswana","brazil","brunei","bulgaria","burkina faso","burundi","cambodia","cameroon","canada","cape verde","central african republic",
+  "chad","chile","china","colombia","comoros","congo","costa rica","croatia","cuba","cyprus","czech republic","czechia","denmark",
+  "djibouti","dominica","dominican republic","ecuador","egypt","el salvador","equatorial guinea","eritrea","estonia","eswatini",
+  "ethiopia","fiji","finland","france","gabon","gambia","georgia","germany","ghana","greece","grenada","guatemala","guinea",
+  "guinea-bissau","guyana","haiti","honduras","hungary","iceland","indonesia","iran","iraq","ireland","israel","italy","ivory coast",
+  "jamaica","japan","jordan","kazakhstan","kenya","kiribati","kosovo","kuwait","kyrgyzstan","laos","latvia","lebanon","lesotho",
+  "liberia","libya","liechtenstein","lithuania","luxembourg","madagascar","malawi","malaysia","maldives","mali","malta",
+  "marshall islands","mauritania","mauritius","mexico","micronesia","moldova","monaco","mongolia","montenegro","morocco",
+  "mozambique","myanmar","burma","namibia","nauru","nepal","netherlands","new zealand","nicaragua","niger","nigeria","north korea",
+  "north macedonia","macedonia","norway","oman","pakistan","palau","palestine","panama","papua new guinea","paraguay","peru",
+  "philippines","poland","portugal","qatar","romania","russia","rwanda","saint kitts and nevis","saint lucia",
+  "saint vincent and the grenadines","samoa","san marino","sao tome and principe","saudi arabia","senegal","serbia","seychelles",
+  "sierra leone","singapore","slovakia","slovenia","solomon islands","somalia","south africa","south korea","korea","south sudan",
+  "spain","sri lanka","sudan","suriname","sweden","switzerland","syria","taiwan","tajikistan","tanzania","thailand","timor-leste",
+  "east timor","togo","tonga","trinidad and tobago","tunisia","turkey","turkiye","turkmenistan","tuvalu","uganda","ukraine",
+  "united arab emirates","uae","united kingdom","uk","britain","great britain","england","scotland","wales","united states",
+  "united states of america","usa","us","america","uruguay","uzbekistan","vanuatu","vatican city","venezuela","vietnam","yemen",
+  "zambia","zimbabwe",
+]);
+
+async function geocodeSearch(query){
+  const q = (query || "").trim();
+  if(q.length < 2) return [];
+  if(COUNTRY_NAMES.has(q.toLowerCase())) return []; // country name typed — no place found, by design
+  const settled = await Promise.allSettled([searchOpenMeteo(q), searchNominatim(q)]);
+  let merged = [];
+  let anyLiveOk = false;
+  for(const r of settled){
+    if(r.status === "fulfilled"){ anyLiveOk = true; merged.push(...r.value); }
+  }
+  if(merged.length === 0){
+    try{ merged = await searchPhoton(q); anyLiveOk = true; } catch(e){ /* try local below */ }
+  }
+  liveSearchWorking = anyLiveOk;
+  merged = dedupePlaces([...merged, ...localSearchFallback(q)]);
+  return merged.slice(0, 12);
+}
+
+// Small warning shown under search results when no live source could be reached,
+// so users know they're only seeing the built-in list rather than all of India.
+function liveSearchNote(){
+  if(liveSearchWorking !== false) return "";
+  return `<div class="ac-note" style="padding:10px 14px;font-size:11.5px;color:var(--amber);">Live India-wide search couldn't be reached — showing built-in places only. Check your internet connection and try again.</div>`;
+}
+
+async function reverseGeocode(lat, lng, exclude){
+  const tryProviders = [
+    async ()=>{
+      const d = await fetchJson(`${GEOCODE_BASE}/reverse?format=jsonv2&addressdetails=1&accept-language=en&lat=${lat}&lon=${lng}`, 6000);
+      return placeLabel(d);
+    },
+    async ()=>{
+      const d = await fetchJson(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`, 6000);
+      const place = d.locality || d.city;
+      return [place, d.principalSubdivision].filter(Boolean).join(", ");
+    },
+  ];
+  for(const attempt of tryProviders){
+    try{
+      const label = await attempt();
+      if(label && !(exclude && exclude.has(label))) return { label, lat, lng };
+    } catch(e){ /* try the next source */ }
+  }
+  return localNearestFallback({lat,lng}, exclude);
+}
+
+function makeStationForStop(place, legDistance, idx){
+  const network = NETWORKS[idx % NETWORKS.length];
+  const statusRoll = Math.random();
+  const status = statusRoll > 0.82 ? "busy" : (statusRoll > 0.94 ? "offline" : "available");
+  const connectors = [{type:"CCS2", power: idx % 2 === 0 ? 60 : 50, price: 18 + (idx % 4)}];
+  if(idx % 3 === 0) connectors.push({type:"Type 2 AC", power:22, price:12});
+  return {
+    id: 9000 + idx,
+    city: place.label,
+    name: `${place.label.split(",")[0]} Highway Charging Hub`,
+    area: "NH corridor",
+    network,
+    distance: Math.round(legDistance*10)/10,
+    status: status === "offline" ? "available" : status, // keep route stops usable
+    rating: Math.round((3.9 + Math.random()*0.8)*10)/10,
+    connectors,
+    amenities: ["restroom","cafe","parking"].filter(()=>Math.random()>0.35),
+    lat: place.lat, lng: place.lng,
+  };
+}
+
+async function planTrip(from, to, rangeKm, startPct, onProgress){
+  if(!from || !to) return {error:"missing"};
+  if(from.label === to.label) return {error:"same"};
+
+  const totalDist = roadDistance(from, to);
+  const usableStart = rangeKm * (startPct/100);
+  const safeRange = rangeKm * 0.8;   // never plan below 20% reserve
+  const chargeTo = rangeKm * 0.85;   // fast-charge target per stop
+  const DAILY_DRIVE_HOURS = 9;       // comfortable daily driving budget for long hauls
+
+  let stops = [];
+  let distanceCovered = 0;
+  let availableRange = usableStart;
+  let usedLabels = new Set([from.label, to.label]);
+  let guard = 0;
+  let hoursSinceBreak = 0;
+  let dayNum = 1;
+
+  // Generous cap so genuinely long state-to-state routes (e.g. Chennai–Delhi,
+  // Kanyakumari–Srinagar) can still resolve fully instead of cutting off early.
+  const MAX_STOPS = 60;
+
+  while((totalDist - distanceCovered) > availableRange && guard < MAX_STOPS){
+    guard++;
+    const legBudget = Math.min(availableRange, safeRange) * 0.92; // small safety margin
+    const targetDist = distanceCovered + legBudget;
+    const t = Math.min(targetDist / totalDist, 0.985);
+    const approxPoint = pointAtFraction(from, to, t);
+    if(guard > 1) await sleep(300); // be polite to the free geocoding service between calls
+    const stopPlace = await reverseGeocode(approxPoint.lat, approxPoint.lng, usedLabels);
+    if(!stopPlace) break;
+    usedLabels.add(stopPlace.label);
+    const distFromStart = roadDistance(from, stopPlace);
+    const legDist = distFromStart - distanceCovered;
+    if(legDist <= 5) break; // avoid degenerate tiny/duplicate legs
+
+    const arrivalRangeLeft = availableRange - legDist;
+    const arrivalPct = Math.max(2, Math.round((arrivalRangeLeft/rangeKm)*100));
+    const departPct = Math.round((chargeTo/rangeKm)*100);
+    const energyPct = departPct - arrivalPct;
+    const batteryKwh = rangeKm / 6; // ~6 km/kWh typical Indian EV efficiency
+    const energyKwh = (energyPct/100) * batteryKwh;
+    const chargeMinutes = Math.max(15, Math.round((energyKwh/50)*60)); // 50kW avg fast charger
+
+    const legDrivingHours = legDist / 70;
+    const overnight = (hoursSinceBreak + legDrivingHours) > DAILY_DRIVE_HOURS;
+
+    stops.push({
+      place: stopPlace,
+      legDist: Math.round(legDist*10)/10,
+      cumulativeDist: Math.round(distFromStart*10)/10,
+      arrivalPct, departPct, chargeMinutes,
+      day: dayNum, overnight,
+      station: makeStationForStop(stopPlace, legDist, stops.length),
+    });
+
+    if(overnight){ dayNum++; hoursSinceBreak = 0; }
+    else{ hoursSinceBreak += legDrivingHours + (chargeMinutes/60); }
+
+    distanceCovered = distFromStart;
+    availableRange = chargeTo;
+    if(onProgress) onProgress(stops.length);
+  }
+
+  const finalLeg = totalDist - distanceCovered;
+  const finalArrivalRange = availableRange - finalLeg;
+  const finalArrivalPct = Math.max(2, Math.round((finalArrivalRange/rangeKm)*100));
+  const finalLegDrivingHours = finalLeg / 70;
+  const finalDay = (hoursSinceBreak + finalLegDrivingHours) > DAILY_DRIVE_HOURS ? dayNum + 1 : dayNum;
+
+  const drivingHours = totalDist / 70; // avg highway speed assumption
+  const chargingHours = stops.reduce((sum,s)=>sum+s.chargeMinutes,0)/60;
+  const totalHours = drivingHours + chargingHours;
+  const incomplete = (totalDist - distanceCovered) > availableRange; // hit MAX_STOPS without closing the gap
+
+  return {
+    from, to, totalDist: Math.round(totalDist), stops,
+    finalLeg: Math.round(finalLeg*10)/10, finalArrivalPct, finalDay,
+    totalHours: Math.round(totalHours*10)/10,
+    chargingHours: Math.round(chargingHours*10)/10,
+    totalDays: finalDay, incomplete,
+  };
+}
+
+/* ---- autocomplete (live, India-wide) ---- */
+function setupAutocomplete(inputId, acId, onPick){
+  const input = document.getElementById(inputId);
+  const ac = document.getElementById(acId);
+  let debounceTimer = null;
+  let seq = 0;
+
+  input.addEventListener("input", ()=>{
+    onPick(null); // typing invalidates any previously selected place
+    const q = input.value.trim();
+    clearTimeout(debounceTimer);
+    if(q.length < 2){ ac.classList.remove("show"); return; }
+    ac.innerHTML = `<div class="ac-item" style="color:var(--text-lo);">Searching India…</div>`;
+    ac.classList.add("show");
+    const mySeq = ++seq;
+    debounceTimer = setTimeout(async ()=>{
+      const results = await geocodeSearch(q);
+      if(mySeq !== seq) return; // a newer keystroke superseded this request
+      if(results.length===0){
+        ac.innerHTML = `<div class="ac-item" style="color:var(--text-lo);">No matches — try a different spelling</div>` + liveSearchNote();
+        return;
+      }
+      ac.innerHTML = results.map((p,i)=>`<div class="ac-item" data-idx="${i}">${p.label}</div>`).join("") + liveSearchNote();
+      ac.querySelectorAll(".ac-item").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          const p = results[parseInt(el.dataset.idx)];
+          if(!p) return;
+          input.value = p.label;
+          ac.classList.remove("show");
+          onPick(p);
+        });
+      });
+    }, 450);
+  });
+  document.addEventListener("click", (e)=>{
+    if(!e.target.closest(".place-field")) ac.classList.remove("show");
+  });
+}
+
+setupAutocomplete("fromInput","fromAc", (place)=>{ tripState.from = place; });
+setupAutocomplete("toInput","toAc", (place)=>{ tripState.to = place; });
+
+document.getElementById("swapBtn").addEventListener("click", ()=>{
+  const fromInput = document.getElementById("fromInput");
+  const toInput = document.getElementById("toInput");
+  const tmpVal = fromInput.value;
+  fromInput.value = toInput.value;
+  toInput.value = tmpVal;
+  const tmpPlace = tripState.from;
+  tripState.from = tripState.to;
+  tripState.to = tmpPlace;
+});
+
+function renderTripError(msg){
+  document.getElementById("tripOutput").innerHTML = `<div class="empty" style="padding:30px 10px;"><div class="big">Can't plan that trip</div>${msg}</div>`;
+}
+
+function renderTripResults(plan){
+  const out = document.getElementById("tripOutput");
+  const stopsHtml = plan.stops.map((s,i)=>`
+    ${s.overnight ? `<div class="tl-node" style="padding-bottom:14px;"><div class="tl-label" style="color:var(--amber);">🌙 Suggested overnight halt — Day ${s.day+1} begins here</div></div>` : ''}
+    <div class="tl-node mid">
+      <div class="tl-label">Stop ${i+1} · ${s.cumulativeDist} km from ${plan.from.label.split(",")[0]} · Day ${s.day}</div>
+      <div class="tl-card" data-station-id="${s.station.id}">
+        <div class="tl-title">${s.station.name}</div>
+        <div class="tl-sub">${s.place.label} · ${s.station.network} · ${statusLabel(s.station.status)}</div>
+        <div class="tl-meta">
+          <div>Leg <b>${s.legDist} km</b></div>
+          <div>Arrive <b>${s.arrivalPct}%</b></div>
+          <div>Charge <b>${s.chargeMinutes} min</b> → ${s.departPct}%</div>
+        </div>
+        <div class="charge-bar"><div class="charge-fill" style="width:${s.departPct}%"></div></div>
+      </div>
+    </div>
+  `).join("");
+
+  const multiDay = plan.totalDays > 1;
+
+  out.innerHTML = `
+    <div class="trip-summary">
+      <div class="trip-summary-route">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>
+        ${plan.from.label.split(",")[0]} → ${plan.to.label.split(",")[0]}
+      </div>
+      <div class="trip-summary-stats">
+        <div class="stat-box"><div class="v">${plan.totalDist} km</div><div class="l">Total distance</div></div>
+        <div class="stat-box"><div class="v">${plan.stops.length}</div><div class="l">Charging stops</div></div>
+        <div class="stat-box"><div class="v">${multiDay ? plan.totalDays + ' days' : plan.totalHours + ' hr'}</div><div class="l">${multiDay ? 'Recommended pace' : 'Trip time'}</div></div>
+      </div>
+      ${multiDay ? `<div style="font-size:12px;color:var(--text-lo);margin-top:12px;">This is a long-haul route — about ${plan.totalHours} hours of driving and charging combined. We've suggested overnight halts at roughly every ${9}-hour driving stretch below.</div>` : ''}
+      ${plan.incomplete ? `<div style="font-size:12px;color:#FFCE85;margin-top:12px;">⚠ This route is very long — the plan below covers the first stretch. Re-plan from the last stop shown to continue mapping the rest.</div>` : ''}
+    </div>
+
+    <div class="timeline">
+      <div class="tl-node">
+        <div class="tl-label">Start · Day 1</div>
+        <div class="tl-card">
+          <div class="tl-title">${plan.from.label}</div>
+          <div class="tl-sub">Depart fully charged and ready to go</div>
+        </div>
+      </div>
+      ${stopsHtml}
+      <div class="tl-node">
+        <div class="tl-label">Arrive · ${plan.finalLeg} km final leg · Day ${plan.finalDay}</div>
+        <div class="tl-card">
+          <div class="tl-title">${plan.to.label}</div>
+          <div class="tl-sub">Estimated arrival charge: ${plan.finalArrivalPct}%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="trip-note">Stops are placed using live OpenStreetMap place data covering cities, towns and districts across India, snapped to great-circle distance and typical highway speeds — not live traffic or road data. Overnight halts assume a ~9-hour daily driving comfort limit. Use this as a planning guide and confirm charger availability before you go.</div>
+  `;
+
+  out.querySelectorAll(".tl-card[data-station-id]").forEach(el=>{
+    el.style.cursor = "pointer";
+    el.addEventListener("click", ()=> openSheet(parseInt(el.dataset.stationId)));
+  });
+}
+
+async function resolvePlace(typedValue, cached){
+  if(cached) return cached;
+  if(!typedValue) return null;
+  const results = await geocodeSearch(typedValue);
+  return results[0] || null;
+}
+
+document.getElementById("planBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("planBtn");
+  const fromVal = document.getElementById("fromInput").value.trim();
+  const toVal = document.getElementById("toInput").value.trim();
+  const rangeVal = parseFloat(document.getElementById("rangeInput").value) || 0;
+  const startPct = Math.min(100, Math.max(1, parseFloat(document.getElementById("startChargeInput").value) || 100));
+
+  if(!fromVal || !toVal){
+    renderTripError("Enter both a departure and destination place.");
+    return;
+  }
+  if(rangeVal < 20){
+    renderTripError("Enter your EV's full-charge range in km (e.g. 300).");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Finding places…";
+  const from = await resolvePlace(fromVal, tripState.from);
+  const to = await resolvePlace(toVal, tripState.to);
+
+  if(!from || !to){
+    btn.disabled = false; btn.textContent = "Plan trip";
+    renderTripError("Couldn't recognize one of those places — try a different spelling or pick from the suggestions.");
+    return;
+  }
+
+  btn.textContent = "Planning your route…";
+  const plan = await planTrip(from, to, rangeVal, startPct, (count)=>{
+    btn.textContent = `Planning your route… (${count} stop${count===1?'':'s'} found)`;
+  });
+  btn.disabled = false;
+  btn.textContent = "Plan trip";
+
+  if(plan.error === "same"){ renderTripError("Departure and destination can't be the same place."); return; }
+  if(plan.error === "missing"){ renderTripError("Couldn't recognize one of those places — try a different spelling or pick from the suggestions."); return; }
+
+  tripState.stops = plan.stops;
+  renderTripResults(plan);
+});
+
+/* pre-fill the illustrative example */
+document.getElementById("fromInput").value = "Chennai";
+document.getElementById("toInput").value = "Coimbatore";
+
+
+/* ---------------- MASTER RENDER ---------------- */
+function renderAll(){
+  renderChips();
+  renderList();
+  if(state.view === "map") renderMap();
+  renderFavorites();
+}
+
+/* ---------------- OPERATOR PANEL (Profile tab) ---------------- */
+function setBackendStatus(connected, note){
+  const dot = document.getElementById("backendStatusDot");
+  const text = document.getElementById("backendStatusText");
+  dot.style.background = connected ? "var(--teal)" : "var(--rose)";
+  text.textContent = note;
+}
+
+document.getElementById("seedBtn").addEventListener("click", async ()=>{
+  if(!db){ showToast("Connect a database first — see the config notes at the top of the file"); return; }
+  const btn = document.getElementById("seedBtn");
+  btn.disabled = true; btn.textContent = "Seeding…";
+  try{
+    await seedDemoStationsToBackend(db, DEMO_STATIONS);
+    STATIONS = await loadStationsFromBackend(db);
+    renderAll();
+    showToast("Demo stations added to your database");
+  } catch(e){
+    showToast("Couldn't seed data — check your Firestore rules");
+  }
+  btn.disabled = false; btn.textContent = "Seed demo stations into database";
+});
+
+/* ---------------- CUSTOMER: suggest a station (manual form + optional live location) ---------------- */
+let suggestPlace = null; // {label, lat, lng} once picked from search or via "use my location"
+let suggestConnector = "CCS2";
+
+function resetSuggestForm(){
+  suggestPlace = null;
+  suggestConnector = "CCS2";
+  ["sugName","sugPlaceInput","sugPower","sugPrice"].forEach(id=>{ document.getElementById(id).value = ""; });
+  document.getElementById("sugConnectorVal").textContent = suggestConnector;
+  document.getElementById("suggestMsg").textContent = "";
+  const btn = document.getElementById("submitSuggestionBtn");
+  btn.disabled = false; btn.textContent = "Submit for review";
+}
+
+setupAutocomplete("sugPlaceInput","sugPlaceAc", (place)=>{ suggestPlace = place; });
+
+document.getElementById("sugConnectorRow").addEventListener("click", ()=>{
+  const idx = CONNECTOR_CHOICES.indexOf(suggestConnector);
+  suggestConnector = CONNECTOR_CHOICES[(idx + 1) % CONNECTOR_CHOICES.length];
+  document.getElementById("sugConnectorVal").textContent = suggestConnector;
+});
+
+document.getElementById("sugLocateBtn").addEventListener("click", ()=>{
+  const btn = document.getElementById("sugLocateBtn");
+  const label = document.getElementById("sugLocateBtnLabel");
+  if(!navigator.geolocation){ showToast("Location isn't available in this browser"); return; }
+  btn.classList.add("loading");
+  label.textContent = "Finding your location…";
+  navigator.geolocation.getCurrentPosition(
+    async (pos)=>{
+      const here = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+      const place = await reverseGeocode(here.lat, here.lng, new Set());
+      suggestPlace = place || { label: `${here.lat.toFixed(4)}, ${here.lng.toFixed(4)}`, lat: here.lat, lng: here.lng };
+      document.getElementById("sugPlaceInput").value = suggestPlace.label;
+      btn.classList.remove("loading");
+      label.textContent = "Or use my current location";
+    },
+    (err)=>{
+      btn.classList.remove("loading");
+      label.textContent = "Or use my current location";
+      const reasons = {1:"Location access is blocked for this site.", 2:"Your device couldn't determine a location right now.", 3:"Location took too long — try typing the address instead."};
+      showToast(reasons[err.code] || "Couldn't get your location — try typing the address instead");
+    },
+    {timeout:20000, enableHighAccuracy:false, maximumAge:120000}
+  );
+});
+
+document.getElementById("suggestBanner").addEventListener("click", ()=>{
+  resetSuggestForm();
+  document.getElementById("suggestSheetOverlay").classList.add("active");
+});
+document.getElementById("closeSuggestSheet").addEventListener("click", ()=>{
+  document.getElementById("suggestSheetOverlay").classList.remove("active");
+});
+document.getElementById("suggestSheetOverlay").addEventListener("click", (e)=>{
+  if(e.target.id === "suggestSheetOverlay") document.getElementById("suggestSheetOverlay").classList.remove("active");
+});
+
+document.getElementById("submitSuggestionBtn").addEventListener("click", async ()=>{
+  const msg = document.getElementById("suggestMsg");
+  if(!db){ msg.textContent = "This app isn't connected to a database yet — nothing to submit to."; return; }
+
+  const name = document.getElementById("sugName").value.trim();
+  const typedPlace = document.getElementById("sugPlaceInput").value.trim();
+  const power = parseFloat(document.getElementById("sugPower").value) || 50;
+  const price = parseFloat(document.getElementById("sugPrice").value) || 18;
+
+  if(!name || !typedPlace){
+    msg.textContent = "Station name and address/area are required.";
+    return;
+  }
+
+  const btn = document.getElementById("submitSuggestionBtn");
+  btn.disabled = true; btn.textContent = "Submitting…";
+  try{
+    const place = await resolvePlace(typedPlace, suggestPlace);
+    if(!place){
+      msg.textContent = "Couldn't recognize that address — try a different spelling or pick a suggestion from the list.";
+      btn.disabled = false; btn.textContent = "Submit for review";
+      return;
+    }
+    await submitStationSuggestion(db, {
+      name,
+      area: place.label,
+      city: place.label.split(",")[0].trim(),
+      lat: place.lat,
+      lng: place.lng,
+      connectors: [{type: suggestConnector, power, price}],
+    });
+    msg.textContent = "";
+    document.getElementById("suggestSheetOverlay").querySelector(".sheet-scroll").innerHTML = `<div style="font-size:13px;color:#7EE0CC;text-align:center;padding:30px 10px;">Thanks! Our team will review it shortly.</div>`;
+    setTimeout(()=>{ document.getElementById("suggestSheetOverlay").classList.remove("active"); }, 1200);
+  } catch(e){
+    msg.textContent = "Couldn't submit — check your connection and try again.";
+    btn.disabled = false; btn.textContent = "Submit for review";
+  }
+});
+
+/* ---------------- OPERATOR: unlock gate + pending review queue ---------------- */
+function renderPendingList(list){
+  const wrap = document.getElementById("pendingList");
+  if(!db){
+    wrap.innerHTML = `<div style="font-size:12.5px;color:var(--text-lo);">Connect a database to see customer suggestions here.</div>`;
+    return;
+  }
+  if(list.length === 0){
+    wrap.innerHTML = `<div style="font-size:12.5px;color:var(--text-lo);">No pending suggestions right now.</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(s => `
+    <div class="pending-card" data-fsid="${s.fsId}">
+      <div class="pc-title">${s.name}</div>
+      <div class="pc-sub">${s.area || "—"}, ${s.city} · ${s.lat}, ${s.lng}</div>
+      <div class="pending-actions">
+        <button class="approve-btn" data-action="approve" data-fsid="${s.fsId}">Approve</button>
+        <button class="reject-btn" data-action="reject" data-fsid="${s.fsId}">Reject</button>
+      </div>
+    </div>
+  `).join("");
+
+  wrap.querySelectorAll("button[data-action]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const fsId = btn.dataset.fsid;
+      const suggestion = list.find(s=>s.fsId===fsId);
+      btn.closest(".pending-card").style.opacity = "0.5";
+      try{
+        if(btn.dataset.action === "approve"){
+          await approveSuggestion(db, suggestion);
+          STATIONS = await loadStationsFromBackend(db);
+          renderAll();
+          showToast(`${suggestion.name} is now live`);
+        } else {
+          await rejectSuggestion(db, fsId);
+          showToast("Suggestion rejected");
+        }
+        const refreshed = await loadPendingSuggestions(db);
+        renderPendingList(refreshed);
+      } catch(e){
+        showToast("Something went wrong — try again");
+      }
+    });
+  });
+}
+
+document.getElementById("unlockAdminBtn").addEventListener("click", async ()=>{
+  const input = document.getElementById("adminPasscodeInput");
+  const unlockMsg = document.getElementById("unlockMsg");
+  if(input.value !== ADMIN_PASSCODE){
+    unlockMsg.textContent = "Incorrect passcode.";
+    return;
+  }
+  unlockMsg.textContent = "";
+  document.getElementById("lockGate").style.display = "none";
+  document.getElementById("adminTools").style.display = "block";
+  if(db){
+    const pending = await loadPendingSuggestions(db);
+    renderPendingList(pending);
+  }
+});
+
+/* ---------------- INIT ---------------- */
+/* ---------------- EDITABLE PROFILE ---------------- */
+const PROFILE_STORE_KEY = "ampcharge_profile_v1";
+function loadSavedProfile(){
+  try{
+    const raw = localStorage.getItem(PROFILE_STORE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  } catch(e){ return null; }
+}
+function saveProfile(){
+  try{ localStorage.setItem(PROFILE_STORE_KEY, JSON.stringify(profile)); } catch(e){ /* storage unavailable — profile just won't persist */ }
+}
+let profile = Object.assign(
+  { name: "Logesh", vehicle: "Tata Nexon EV", connector: "CCS2", city: "Bengaluru", notifications: true },
+  loadSavedProfile() || {}
+);
+const CONNECTOR_CHOICES = ["CCS2", "Type 2 AC", "CHAdeMO", "Bharat AC001"];
+
+// Model -> charger-type reference, so picking a model can set the right
+// connector automatically. This covers most of the Indian EV market as of
+// early 2026, but new models launch constantly — it's a best-effort list,
+// not a guaranteed-complete one, which is why "Other" is always available.
+// Mapped to whichever of the 4 connector types above is the closest match.
+const VEHICLE_MODELS = {
+  cars: [
+    {name:"Tata Nexon EV", connector:"CCS2"},
+    {name:"Tata Tiago EV", connector:"CCS2"},
+    {name:"Tata Punch EV", connector:"CCS2"},
+    {name:"Tata Tigor EV", connector:"CCS2"},
+    {name:"Tata Curvv EV", connector:"CCS2"},
+    {name:"Tata Harrier EV", connector:"CCS2"},
+    {name:"Tata Altroz EV", connector:"CCS2"},
+    {name:"MG ZS EV", connector:"CCS2"},
+    {name:"MG Comet EV", connector:"CCS2"},
+    {name:"MG Windsor EV", connector:"CCS2"},
+    {name:"Mahindra XUV400", connector:"CCS2"},
+    {name:"Mahindra BE 6", connector:"CCS2"},
+    {name:"Mahindra XEV 9e", connector:"CCS2"},
+    {name:"Hyundai Kona Electric", connector:"CCS2"},
+    {name:"Hyundai Ioniq 5", connector:"CCS2"},
+    {name:"Hyundai Creta Electric", connector:"CCS2"},
+    {name:"Kia EV6", connector:"CCS2"},
+    {name:"Kia EV9", connector:"CCS2"},
+    {name:"Kia Syros EV", connector:"CCS2"},
+    {name:"BYD Atto 3", connector:"CCS2"},
+    {name:"BYD e6", connector:"CCS2"},
+    {name:"BYD Seal", connector:"CCS2"},
+    {name:"BYD Seal U / Sealion 7", connector:"CCS2"},
+    {name:"BYD eMAX 7", connector:"CCS2"},
+    {name:"Citroen eC3", connector:"CCS2"},
+    {name:"Citroen Basalt EV", connector:"CCS2"},
+    {name:"Maruti Suzuki e Vitara (eVX)", connector:"CCS2"},
+    {name:"BMW iX1", connector:"CCS2"},
+    {name:"BMW i4", connector:"CCS2"},
+    {name:"BMW iX", connector:"CCS2"},
+    {name:"BMW i7", connector:"CCS2"},
+    {name:"Mercedes-Benz EQB", connector:"CCS2"},
+    {name:"Mercedes-Benz EQA", connector:"CCS2"},
+    {name:"Mercedes-Benz EQS", connector:"CCS2"},
+    {name:"Mercedes-Benz EQE", connector:"CCS2"},
+    {name:"Audi e-tron", connector:"CCS2"},
+    {name:"Audi Q8 e-tron", connector:"CCS2"},
+    {name:"Volvo XC40 Recharge", connector:"CCS2"},
+    {name:"Volvo C40 Recharge", connector:"CCS2"},
+    {name:"Volvo EX30", connector:"CCS2"},
+    {name:"Jaguar I-PACE", connector:"CCS2"},
+    {name:"Porsche Taycan", connector:"CCS2"},
+    {name:"Lexus RZ", connector:"CCS2"},
+    {name:"Volkswagen ID.4", connector:"CCS2"},
+    {name:"Skoda Enyaq", connector:"CCS2"},
+    {name:"PMV EaS", connector:"CCS2"},
+  ],
+  twoWheelers: [
+    {name:"Ola S1 Pro", connector:"Type 2 AC"},
+    {name:"Ola S1 Air", connector:"Type 2 AC"},
+    {name:"Ola S1 X", connector:"Type 2 AC"},
+    {name:"Ola Roadster", connector:"Type 2 AC"},
+    {name:"Ather 450X", connector:"Type 2 AC"},
+    {name:"Ather 450S", connector:"Type 2 AC"},
+    {name:"Ather 450 Plus", connector:"Type 2 AC"},
+    {name:"Ather Rizta", connector:"Type 2 AC"},
+    {name:"TVS iQube", connector:"Bharat AC001"},
+    {name:"TVS iQube ST", connector:"Bharat AC001"},
+    {name:"TVS X", connector:"Type 2 AC"},
+    {name:"Bajaj Chetak", connector:"Bharat AC001"},
+    {name:"Bajaj Chetak Premium", connector:"Bharat AC001"},
+    {name:"Hero Vida V1", connector:"Type 2 AC"},
+    {name:"Hero Vida V1 Pro", connector:"Type 2 AC"},
+    {name:"Hero Vida VX2", connector:"Type 2 AC"},
+    {name:"Hero Electric Optima", connector:"Bharat AC001"},
+    {name:"Hero Electric Photon", connector:"Bharat AC001"},
+    {name:"Hero Electric NYX", connector:"Bharat AC001"},
+    {name:"Ampere Magnus EX", connector:"Bharat AC001"},
+    {name:"Ampere Zeal", connector:"Bharat AC001"},
+    {name:"Ampere Primus", connector:"Type 2 AC"},
+    {name:"Okinawa PraisePro", connector:"Bharat AC001"},
+    {name:"Okinawa Ridge+", connector:"Bharat AC001"},
+    {name:"Revolt RV400", connector:"Bharat AC001"},
+    {name:"Revolt RV1", connector:"Bharat AC001"},
+    {name:"Simple Energy One", connector:"Type 2 AC"},
+    {name:"River Indie", connector:"Type 2 AC"},
+    {name:"Ultraviolette F77", connector:"CCS2"},
+    {name:"BGauss B8", connector:"Bharat AC001"},
+    {name:"BGauss A2", connector:"Bharat AC001"},
+    {name:"Komaki Ranger", connector:"Bharat AC001"},
+    {name:"PURE EV EPluto", connector:"Bharat AC001"},
+  ],
+};
+
+function renderProfile(){
+  document.getElementById("profileAvatar").textContent = (profile.name.trim()[0] || "?").toUpperCase();
+  document.getElementById("profileNameDisplay").textContent = profile.name;
+  document.getElementById("profileSub").textContent = `EV owner · ${profile.city}`;
+  document.getElementById("valVehicle").textContent = profile.vehicle;
+  document.getElementById("valConnector").textContent = profile.connector;
+  document.getElementById("valCity").textContent = profile.city;
+  const toggle = document.getElementById("notifToggle");
+  toggle.classList.toggle("on", profile.notifications);
+}
+
+function editTextField(displayId, currentValue, onSave){
+  const el = document.getElementById(displayId);
+  const input = document.createElement("input");
+  input.className = displayId === "profileNameDisplay" ? "profile-name-input" : "inline-edit-input";
+  input.value = currentValue;
+  el.style.display = "none";
+  el.insertAdjacentElement("afterend", input);
+  input.focus();
+  input.select();
+  const commit = ()=>{
+    const val = input.value.trim();
+    input.remove();
+    el.style.display = "";
+    onSave(val);
+    saveProfile();
+    renderProfile();
+    rewireProfileHandlers();
+  };
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", (e)=>{ if(e.key === "Enter") input.blur(); });
+}
+
+function rewireProfileHandlers(){
+  document.getElementById("profileNameDisplay").onclick = ()=>{
+    editTextField("profileNameDisplay", profile.name, (v)=>{ profile.name = v || profile.name; });
+  };
+  document.getElementById("rowVehicle").onclick = openVehicleSheet;
+  document.getElementById("rowCity").onclick = ()=>{
+    editTextField("valCity", profile.city, (v)=>{ profile.city = v || profile.city; });
+  };
+  document.getElementById("rowConnector").onclick = ()=>{
+    // tap cycles through known connector types — keeps it to valid values, no typing
+    const idx = CONNECTOR_CHOICES.indexOf(profile.connector);
+    profile.connector = CONNECTOR_CHOICES[(idx + 1) % CONNECTOR_CHOICES.length];
+    saveProfile();
+    renderProfile();
+    rewireProfileHandlers();
+  };
+}
+
+/* ---- vehicle model picker ---- */
+function vehicleItemHtml(name, connector){
+  return `<div class="vehicle-item" data-name="${name}" data-connector="${connector}">
+    <span>${name}</span><span class="vi-tag">${connector}</span>
+  </div>`;
+}
+
+function renderVehicleLists(query){
+  const q = (query||"").trim().toLowerCase();
+  const carWrap = document.getElementById("vehicleCarList");
+  const twWrap = document.getElementById("vehicleTwoWheelerList");
+
+  const cars = VEHICLE_MODELS.cars.filter(v => !q || v.name.toLowerCase().includes(q));
+  const tws = VEHICLE_MODELS.twoWheelers.filter(v => !q || v.name.toLowerCase().includes(q));
+
+  carWrap.innerHTML = cars.length ? cars.map(v=>vehicleItemHtml(v.name, v.connector)).join("")
+    : `<div style="font-size:12.5px;color:var(--text-lo);padding:6px 2px;">No matches.</div>`;
+  twWrap.innerHTML = tws.length ? tws.map(v=>vehicleItemHtml(v.name, v.connector)).join("")
+    : `<div style="font-size:12.5px;color:var(--text-lo);padding:6px 2px;">No matches.</div>`;
+
+  document.querySelectorAll("#vehicleCarList .vehicle-item, #vehicleTwoWheelerList .vehicle-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      profile.vehicle = el.dataset.name;
+      profile.connector = el.dataset.connector;
+      saveProfile();
+      closeVehicleSheet();
+      renderProfile();
+      rewireProfileHandlers();
+      showToast(`${el.dataset.connector} set as your charger type`);
+    });
+  });
+}
+
+function openVehicleSheet(){
+  document.getElementById("vehicleSearchInput").value = "";
+  renderVehicleLists("");
+  document.getElementById("vehicleSheetOverlay").classList.add("active");
+}
+function closeVehicleSheet(){ document.getElementById("vehicleSheetOverlay").classList.remove("active"); }
+document.getElementById("closeVehicleSheet").addEventListener("click", closeVehicleSheet);
+document.getElementById("vehicleSheetOverlay").addEventListener("click", (e)=>{
+  if(e.target.id === "vehicleSheetOverlay") closeVehicleSheet();
+});
+document.getElementById("vehicleSearchInput").addEventListener("input", (e)=>{
+  renderVehicleLists(e.target.value);
+});
+document.getElementById("vehicleOtherItem").addEventListener("click", ()=>{
+  closeVehicleSheet();
+  editTextField("valVehicle", profile.vehicle, (v)=>{ profile.vehicle = v || profile.vehicle; });
+});
+
+document.getElementById("notifToggle").addEventListener("click", ()=>{
+  profile.notifications = !profile.notifications;
+  saveProfile();
+  renderProfile();
+});
+
+async function init(){
+  // Profile's city is the user's home base — Explore starts there each time,
+  // but browsing a different city afterward never overwrites this setting.
+  if(CITIES.includes(profile.city)){
+    state.city = profile.city;
+    document.getElementById("cityLabel").textContent = profile.city;
+  }
+  renderBottomNavs();
+  renderAll(); // render immediately with demo data so the app is never blank
+  renderProfile();
+  rewireProfileHandlers();
+
+  if(!FIREBASE_ENABLED){
+    setBackendStatus(false, "Not connected — showing demo data");
+    return;
+  }
+  setBackendStatus(false, "Connecting…");
+  db = await initBackend();
+  if(!db){
+    setBackendStatus(false, `Connection failed: ${lastBackendError || "unknown error"}`);
+    return;
+  }
+  try{
+    const live = await loadStationsFromBackend(db);
+    if(live.length > 0){
+      STATIONS = live;
+      renderAll();
+    }
+    setBackendStatus(true, live.length > 0 ? `Connected — ${live.length} live stations` : "Connected — database is empty, seed it below");
+  } catch(e){
+    setBackendStatus(false, `Connected, but couldn't load stations: ${e.message || e}`);
+  }
+}
+init();
+</script>
+</body>
+</html>
